@@ -1,0 +1,50 @@
+[workspace]
+members = [
+    "fedimintd",
+]
+resolver = "2"
+
+[workspace.metadata]
+authors = ["The Fedimint Developers"]
+edition = "2021"
+description = "Fedimint compiled with custom module set"
+documentation = "https://github.com/fedimint/fedimint-custom-modules-example"
+readme = "README.md"
+homepage = "https://github.com/fedimint/fedimint-custom-modules-example"
+repository = "https://github.com/fedimint/fedimint-custom-modules-example"
+license-file = "LICENSE"
+keywords = ["bitcoin", "lightning", "chaumian", "e-cash", "federated"]
+
+[workspace.dependencies]
+fedimintd = { git = "https://github.com/fedimint/fedimint", rev = "71c88e2eb54e7f2bbd34d4d632388e4954cc3d4e" }
+fedimint-core = { git = "https://github.com/fedimint/fedimint", rev = "71c88e2eb54e7f2bbd34d4d632388e4954cc3d4e" }
+fedimint-dummy= {  git = "https://github.com/fedimint/fedimint", rev = "71c88e2eb54e7f2bbd34d4d632388e4954cc3d4e",  features = [ "server" ] }
+aead = { git = "https://github.com/fedimint/fedimint", rev = "71c88e2eb54e7f2bbd34d4d632388e4954cc3d4e" }
+threshold_crypto = { git = "https://github.com/jkitman/threshold_crypto", branch = "upgrade-threshold-crypto-libs" }
+tbs = { git = "https://github.com/fedimint/fedimint", rev = "71c88e2eb54e7f2bbd34d4d632388e4954cc3d4e" }
+
+[profile.dev]
+split-debuginfo = "packed"
+
+# in dev mode optimize crates that are perf-critical (usually just crypto crates)
+[profile.dev.package]
+secp256k1 = { opt-level = 3 }
+secp256k1-zkp = { opt-level = 3 }
+secp256k1-sys = { opt-level = 3 }
+secp256k1-zkp-sys = { opt-level = 3 }
+bitcoin_hashes = { opt-level = 3 }
+ff = { opt-level = 3 }
+group = { opt-level = 3 }
+pairing = { opt-level = 3 }
+rand_core = { opt-level = 3 }
+byteorder = { opt-level = 3 }
+zeroize = { opt-level = 3 }
+bls12_381 = { opt-level = 3 }
+subtle = { opt-level = 3 }
+ring = { opt-level = 3 }
+threshold_crypto = { opt-level = 3 }
+
+
+[patch.crates-io]
+secp256k1-zkp = { git = "https://github.com/dpc/rust-secp256k1-zkp/", branch = "sanket-pr" }
+

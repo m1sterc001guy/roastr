@@ -1,0 +1,6 @@
+/target
+/result
+.idea
+.tmpenv
+.direnv
+.vscode

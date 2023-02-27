@@ -1,0 +1,16 @@
+[package]
+name = "fedimintd-custom"
+version = "0.1.0"
+authors = ["The Fedimint Developers"]
+edition = "2021"
+description = "fedimintd with custom module set"
+
+[[bin]]
+name = "fedimintd"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.66"
+fedimintd = { workspace = true }
+tokio = { version = "1.25.0", features = ["full", "tracing"] }
+fedimint-dummy= { workspace = true, features = [ "server" ] }
