@@ -13,4 +13,4 @@ path = "src/main.rs"
 anyhow = "1.0.66"
 fedimintd = { workspace = true }
 tokio = { version = "1.25.0", features = ["full", "tracing"] }
-fedimint-dummy= { workspace = true, features = [ "server" ] }
+fedimint-dummy-server = { workspace = true }

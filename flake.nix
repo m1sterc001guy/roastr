@@ -8,7 +8,7 @@
       flake = false;
     };
     fedimint = {
-      url = "github:fedimint/fedimint?rev=71c88e2eb54e7f2bbd34d4d632388e4954cc3d4e";
+      url = "github:fedimint/fedimint?rev=6df0bc4c8a5776562ca845a62b2929edaae265f3";
     };
   };
 
