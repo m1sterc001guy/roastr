@@ -39,6 +39,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7de8ce5e0f9f8d88245311066a578d72b7af3e7088f32783804676302df237e4"
 
 [[package]]
+name = "aquamarine"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8d79f0956913d725449e8264e6b460e30d96be324963c666dbf0fa5c2d59149"
+dependencies = [
+ "include_dir",
+ "itertools",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote 1.0.26",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "argon2"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -237,6 +251,12 @@ name = "base64"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
+
+[[package]]
+name = "base64"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ea22880d78093b0cbe17c89f64a7d457941e65759157ec6cb31a31d652b05e5"
 
 [[package]]
 name = "base64"
@@ -818,6 +838,119 @@ version = "0.1.0"
 source = "git+https://github.com/fedimint/fedimint?rev=6df0bc4c8a5776562ca845a62b2929edaae265f3#6df0bc4c8a5776562ca845a62b2929edaae265f3"
 
 [[package]]
+name = "fedimint-cli"
+version = "0.1.0"
+source = "git+https://github.com/fedimint/fedimint?rev=6df0bc4c8a5776562ca845a62b2929edaae265f3#6df0bc4c8a5776562ca845a62b2929edaae265f3"
+dependencies = [
+ "anyhow",
+ "base64 0.20.0",
+ "bitcoin",
+ "bitcoin_hashes",
+ "clap",
+ "fedimint-aead",
+ "fedimint-build",
+ "fedimint-client",
+ "fedimint-client-legacy",
+ "fedimint-core",
+ "fedimint-ln-client",
+ "fedimint-logging",
+ "fedimint-mint-client",
+ "fedimint-rocksdb",
+ "fedimint-wallet-client",
+ "futures",
+ "lightning-invoice",
+ "rand",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+]
+
+[[package]]
+name = "fedimint-cli-custom"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "fedimint-cli",
+ "fedimint-dummy-client",
+ "tokio",
+]
+
+[[package]]
+name = "fedimint-client"
+version = "0.1.0"
+source = "git+https://github.com/fedimint/fedimint?rev=6df0bc4c8a5776562ca845a62b2929edaae265f3#6df0bc4c8a5776562ca845a62b2929edaae265f3"
+dependencies = [
+ "anyhow",
+ "aquamarine",
+ "async-trait",
+ "bitcoin_hashes",
+ "fedimint-core",
+ "fedimint-derive-secret",
+ "fedimint-logging",
+ "futures",
+ "itertools",
+ "rand",
+ "secp256k1-zkp",
+ "serde",
+ "serde_json",
+ "strum",
+ "strum_macros",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "fedimint-client-legacy"
+version = "0.1.0"
+source = "git+https://github.com/fedimint/fedimint?rev=6df0bc4c8a5776562ca845a62b2929edaae265f3#6df0bc4c8a5776562ca845a62b2929edaae265f3"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.20.0",
+ "bincode",
+ "bitcoin",
+ "bitcoin_hashes",
+ "fedimint-aead",
+ "fedimint-client",
+ "fedimint-core",
+ "fedimint-derive-secret",
+ "fedimint-ln-client",
+ "fedimint-logging",
+ "fedimint-mint-client",
+ "fedimint-wallet-client",
+ "fedimint-wallet-common",
+ "futures",
+ "hkdf",
+ "itertools",
+ "jsonrpsee-core 0.18.1",
+ "jsonrpsee-types 0.18.1",
+ "jsonrpsee-wasm-client",
+ "jsonrpsee-ws-client",
+ "lightning",
+ "lightning-invoice",
+ "miniscript",
+ "rand",
+ "reqwest",
+ "ring",
+ "secp256k1",
+ "secp256k1-zkp",
+ "serde",
+ "serde_json",
+ "strum",
+ "strum_macros",
+ "tbs",
+ "thiserror",
+ "threshold_crypto",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "fedimint-core"
 version = "0.1.0"
 source = "git+https://github.com/fedimint/fedimint?rev=6df0bc4c8a5776562ca845a62b2929edaae265f3#6df0bc4c8a5776562ca845a62b2929edaae265f3"
@@ -875,6 +1008,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "fedimint-derive-secret"
+version = "0.1.0"
+source = "git+https://github.com/fedimint/fedimint?rev=6df0bc4c8a5776562ca845a62b2929edaae265f3#6df0bc4c8a5776562ca845a62b2929edaae265f3"
+dependencies = [
+ "anyhow",
+ "fedimint-core",
+ "hkdf",
+ "ring",
+ "secp256k1-zkp",
+ "tbs",
+]
+
+[[package]]
+name = "fedimint-dummy-client"
+version = "0.1.0"
+source = "git+https://github.com/fedimint/fedimint?rev=6df0bc4c8a5776562ca845a62b2929edaae265f3#6df0bc4c8a5776562ca845a62b2929edaae265f3"
+dependencies = [
+ "fedimint-dummy-common",
+]
+
+[[package]]
 name = "fedimint-dummy-common"
 version = "0.1.0"
 source = "git+https://github.com/fedimint/fedimint?rev=6df0bc4c8a5776562ca845a62b2929edaae265f3#6df0bc4c8a5776562ca845a62b2929edaae265f3"
@@ -911,6 +1065,42 @@ dependencies = [
  "strum_macros",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "fedimint-ln-client"
+version = "0.1.0"
+source = "git+https://github.com/fedimint/fedimint?rev=6df0bc4c8a5776562ca845a62b2929edaae265f3#6df0bc4c8a5776562ca845a62b2929edaae265f3"
+dependencies = [
+ "anyhow",
+ "aquamarine",
+ "async-stream",
+ "async-trait",
+ "bincode",
+ "bitcoin",
+ "bitcoin_hashes",
+ "erased-serde",
+ "fedimint-client",
+ "fedimint-core",
+ "fedimint-ln-common",
+ "fedimint-wallet-client",
+ "fedimint-wallet-common",
+ "futures",
+ "itertools",
+ "lightning",
+ "lightning-invoice",
+ "rand",
+ "reqwest",
+ "secp256k1",
+ "secp256k1-zkp",
+ "serde",
+ "serde_json",
+ "strum",
+ "strum_macros",
+ "thiserror",
+ "threshold_crypto",
+ "tracing",
+ "url",
 ]
 
 [[package]]
@@ -981,6 +1171,37 @@ dependencies = [
  "tracing-chrome",
  "tracing-opentelemetry",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "fedimint-mint-client"
+version = "0.1.0"
+source = "git+https://github.com/fedimint/fedimint?rev=6df0bc4c8a5776562ca845a62b2929edaae265f3#6df0bc4c8a5776562ca845a62b2929edaae265f3"
+dependencies = [
+ "anyhow",
+ "aquamarine",
+ "async-stream",
+ "async-trait",
+ "bincode",
+ "bitcoin_hashes",
+ "erased-serde",
+ "fedimint-client",
+ "fedimint-core",
+ "fedimint-derive-secret",
+ "fedimint-mint-common",
+ "futures",
+ "itertools",
+ "rand",
+ "secp256k1",
+ "secp256k1-zkp",
+ "serde",
+ "strum",
+ "strum_macros",
+ "tbs",
+ "thiserror",
+ "threshold_crypto",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1089,6 +1310,32 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
+]
+
+[[package]]
+name = "fedimint-wallet-client"
+version = "0.1.0"
+source = "git+https://github.com/fedimint/fedimint?rev=6df0bc4c8a5776562ca845a62b2929edaae265f3#6df0bc4c8a5776562ca845a62b2929edaae265f3"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bitcoin",
+ "erased-serde",
+ "fedimint-client",
+ "fedimint-core",
+ "fedimint-wallet-common",
+ "futures",
+ "impl-tools",
+ "miniscript",
+ "rand",
+ "secp256k1",
+ "serde",
+ "strum",
+ "strum_macros",
+ "thiserror",
+ "tracing",
+ "url",
+ "validator",
 ]
 
 [[package]]
@@ -1543,6 +1790,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b07f60793ff0a4d9cef0f18e63b5357e06209987153a64648c972c1e5aff336f"
 
 [[package]]
+name = "hkdf"
+version = "0.1.0"
+source = "git+https://github.com/fedimint/fedimint?rev=6df0bc4c8a5776562ca845a62b2929edaae265f3#6df0bc4c8a5776562ca845a62b2929edaae265f3"
+dependencies = [
+ "bitcoin_hashes",
+]
+
+[[package]]
 name = "html-escape"
 version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1709,6 +1964,25 @@ dependencies = [
  "proc-macro2",
  "quote 1.0.26",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "include_dir"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18762faeff7122e89e0857b02f7ce6fcc0d101d5e9ad2ad7846cc01d61b7f19e"
+dependencies = [
+ "include_dir_macros",
+]
+
+[[package]]
+name = "include_dir_macros"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b139284b5cf57ecfa712bcc66950bb635b31aff41c188e8a4cfc758eca374a3f"
+dependencies = [
+ "proc-macro2",
+ "quote 1.0.26",
 ]
 
 [[package]]
@@ -3203,7 +3477,7 @@ dependencies = [
 [[package]]
 name = "threshold_crypto"
 version = "0.4.0"
-source = "git+https://github.com/fedimint/threshold_crypto#2ac269ce86cb9a4ade17522534b87e4b082693fb"
+source = "git+https://github.com/fedimint/threshold_crypto#9b0eeec8f23f41a385174c0d84290cbf8d88a656"
 dependencies = [
  "bls12_381",
  "byteorder",
