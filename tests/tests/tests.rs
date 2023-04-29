@@ -21,11 +21,11 @@ async fn starter_test() -> anyhow::Result<()> {
         esplora,
     } = dev_fed(&task_group, &process_mgr).await?;
 
-    let out = cmd!("fedimint-cli", "ng", "module", "starter")
+    let output = cmd!("fedimint-cli", "module", "--id=starter", "--arg=ping")
         .out_string()
         .await?;
 
-    assert_eq!(out, "\"Hello from starter module\"");
+    assert_eq!(output, "\"pong\"");
 
     Ok(())
 }

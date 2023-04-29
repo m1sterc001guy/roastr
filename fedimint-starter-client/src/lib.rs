@@ -8,7 +8,7 @@ use fedimint_client::module::gen::ClientModuleGen;
 use fedimint_client::module::ClientModule;
 use fedimint_client::sm::{DynState, ModuleNotifier, OperationId, State, StateTransition};
 use fedimint_client::transaction::ClientOutput;
-use fedimint_client::DynGlobalClientContext;
+use fedimint_client::{Client, DynGlobalClientContext};
 use fedimint_core::api::IFederationApi;
 use fedimint_core::core::{IntoDynInstance, ModuleInstanceId};
 use fedimint_core::db::Database;
@@ -54,11 +54,27 @@ impl ClientModule for StarterClientModule {
 
     async fn handle_cli_command(
         &self,
-        _args: &[ffi::OsString],
+        client: &Client,
+        args: &[ffi::OsString],
     ) -> anyhow::Result<serde_json::Value> {
-        // FIXME: can't do this here ...
-        // self.ping(self.api())
-        Ok(serde_json::to_value("Hello from starter module").unwrap())
+        if args.len() < 1 {
+            return Err(anyhow::format_err!(
+                "Expected to be called with at least 1 arguments: <command> …"
+            ));
+        }
+
+        let command = args[0].to_string_lossy();
+
+        match command.as_ref() {
+            "ping" => {
+                let api = client.api();
+                let result = api.ping().await?;
+                Ok(serde_json::to_value(result).unwrap())
+            }
+            command => Err(anyhow::format_err!(
+                "Unknown command: {command}, supported commands: ping"
+            )),
+        }
     }
 
     fn input_amount(

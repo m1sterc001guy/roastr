@@ -9,7 +9,6 @@ description = "tests for starter module"
 name = "fedimint-custom-tests"
 path = "tests/tests.rs"
 
-
 [dependencies]
 anyhow = "1.0.66"
 devimint = { workspace = true }

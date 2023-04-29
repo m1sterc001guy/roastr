@@ -6,7 +6,7 @@ use fedimint_core::task::{MaybeSend, MaybeSync};
 use fedimint_core::{apply, async_trait_maybe_send, NumPeers};
 
 // FIXME: we should figure this out at runtime
-pub const HARDCODED_INSTANCE_ID_STARTER: ModuleInstanceId = 4;
+pub const HARDCODED_INSTANCE_ID_STARTER: ModuleInstanceId = 3;
 
 #[apply(async_trait_maybe_send!)]
 pub trait StarterFederationApi {
