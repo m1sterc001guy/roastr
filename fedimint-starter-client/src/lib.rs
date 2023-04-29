@@ -7,7 +7,6 @@ use fedimint_client::derivable_secret::DerivableSecret;
 use fedimint_client::module::gen::ClientModuleGen;
 use fedimint_client::module::ClientModule;
 use fedimint_client::sm::{DynState, ModuleNotifier, OperationId, State, StateTransition};
-use fedimint_client::transaction::ClientOutput;
 use fedimint_client::{Client, DynGlobalClientContext};
 use fedimint_core::api::IFederationApi;
 use fedimint_core::core::{IntoDynInstance, ModuleInstanceId};

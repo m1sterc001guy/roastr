@@ -21,20 +21,24 @@ license-file = "LICENSE"
 keywords = ["bitcoin", "lightning", "chaumian", "e-cash", "federated"]
 
 [workspace.dependencies]
-# fedimintd = { git = "https://github.com/fedimint/fedimint", rev = "6df0bc4c8a5776562ca845a62b2929edaae265f3" }
-# fedimint-cli = { git = "https://github.com/fedimint/fedimint", rev = "6df0bc4c8a5776562ca845a62b2929edaae265f3" }
-# fedimint-core = { git = "https://github.com/fedimint/fedimint", rev = "6df0bc4c8a5776562ca845a62b2929edaae265f3" }
-# fedimint-starter-server = {  git = "https://github.com/fedimint/fedimint", rev = "6df0bc4c8a5776562ca845a62b2929edaae265f3" }
-aead = { git = "https://github.com/fedimint/fedimint", rev = "6df0bc4c8a5776562ca845a62b2929edaae265f3" }
+# uncomment these to work with local fedimint dependencies
+fedimintd = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
+fedimint-cli = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
+fedimint-core = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
+fedimint-client = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
+fedimint-logging = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
+devimint = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
+aead = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
 threshold_crypto = { git = "https://github.com/jkitman/threshold_crypto", branch = "upgrade-threshold-crypto-libs" }
-fedimintd = { path = "../fedimint/fedimintd" }
-fedimint-cli = { path = "../fedimint/fedimint-cli" }
-fedimint-core = { path = "../fedimint/fedimint-core" }
-fedimint-client = { path = "../fedimint/fedimint-client" }
-fedimint-logging = { path = "../fedimint/fedimint-logging" }
-devimint = { path = "../fedimint/devimint" }
-# fedimint-starter-server = { path = "../fedimint/modules/fedimint-starter-server" }
-tbs = { git = "https://github.com/fedimint/fedimint", rev = "6df0bc4c8a5776562ca845a62b2929edaae265f3" }
+tbs = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
+
+# uncomment these to work with local fedimint dependencies
+# fedimintd = { path = "../fedimint/fedimintd" }
+# fedimint-cli = { path = "../fedimint/fedimint-cli" }
+# fedimint-core = { path = "../fedimint/fedimint-core" }
+# fedimint-client = { path = "../fedimint/fedimint-client" }
+# fedimint-logging = { path = "../fedimint/fedimint-logging" }
+# devimint = { path = "../fedimint/devimint" }
 
 [profile.dev]
 split-debuginfo = "packed"
