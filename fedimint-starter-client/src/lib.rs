@@ -8,7 +8,6 @@ use fedimint_client::module::gen::ClientModuleGen;
 use fedimint_client::module::ClientModule;
 use fedimint_client::sm::{DynState, ModuleNotifier, OperationId, State, StateTransition};
 use fedimint_client::{Client, DynGlobalClientContext};
-use fedimint_core::api::IFederationApi;
 use fedimint_core::core::{IntoDynInstance, ModuleInstanceId};
 use fedimint_core::db::Database;
 use fedimint_core::encoding::{Decodable, Encodable};
@@ -88,18 +87,6 @@ impl ClientModule for StarterClientModule {
         _output: &<Self::Common as ModuleCommon>::Output,
     ) -> TransactionItemAmount {
         unimplemented!()
-    }
-}
-
-impl StarterClientModule {
-    /// Create an output that incentivizes a Lighning gateway to pay an invoice
-    /// for us. It has time till the block height defined by `timelock`,
-    /// after that we can claim our money back.
-    pub async fn ping<'a>(
-        &'a self,
-        api: &(dyn IFederationApi + 'static),
-    ) -> anyhow::Result<String> {
-        Ok(api.ping().await?)
     }
 }
 
