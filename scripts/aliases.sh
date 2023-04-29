@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+alias fedimint-cli="\$FM_MINT_CLIENT"
 alias lightning-cli="\$FM_LIGHTNING_CLI"
 alias lncli="\$FM_LNCLI"
 alias bitcoin-cli="\$FM_BTC_CLIENT"
