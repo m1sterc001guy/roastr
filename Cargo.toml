@@ -22,15 +22,15 @@ keywords = ["bitcoin", "lightning", "chaumian", "e-cash", "federated"]
 
 [workspace.dependencies]
 # uncomment these to work with local fedimint dependencies
-fedimintd = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
-fedimint-cli = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
-fedimint-core = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
-fedimint-client = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
-fedimint-logging = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
-devimint = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
-aead = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
+fedimintd = { git = "https://github.com/fedimint/fedimint", rev = "e2a1b62914d68f1613f63b09e44ef8bfda717219" }
+fedimint-cli = { git = "https://github.com/fedimint/fedimint", rev = "e2a1b62914d68f1613f63b09e44ef8bfda717219" }
+fedimint-core = { git = "https://github.com/fedimint/fedimint", rev = "e2a1b62914d68f1613f63b09e44ef8bfda717219" }
+fedimint-client = { git = "https://github.com/fedimint/fedimint", rev = "e2a1b62914d68f1613f63b09e44ef8bfda717219" }
+fedimint-logging = { git = "https://github.com/fedimint/fedimint", rev = "e2a1b62914d68f1613f63b09e44ef8bfda717219" }
+devimint = { git = "https://github.com/fedimint/fedimint", rev = "e2a1b62914d68f1613f63b09e44ef8bfda717219" }
+aead = { git = "https://github.com/fedimint/fedimint", rev = "e2a1b62914d68f1613f63b09e44ef8bfda717219" }
 threshold_crypto = { git = "https://github.com/jkitman/threshold_crypto", branch = "upgrade-threshold-crypto-libs" }
-tbs = { git = "https://github.com/fedimint/fedimint", rev = "154fc8b9fbf90554d05cb94a5dbfe91830c11432" }
+tbs = { git = "https://github.com/fedimint/fedimint", rev = "e2a1b62914d68f1613f63b09e44ef8bfda717219" }
 
 # uncomment these to work with local fedimint dependencies
 # fedimintd = { path = "../fedimint/fedimintd" }
