@@ -7,7 +7,7 @@ description = "fedimintd with custom module set"
 
 [[bin]]
 name = "fedimintd"
-path = "src/main.rs"
+path = "src/fedimintd.rs"
 
 [[bin]]
 name = "distributedgen"
@@ -17,4 +17,4 @@ path = "src/distributedgen.rs"
 anyhow = "1.0.66"
 fedimintd = { workspace = true }
 tokio = { version = "1.25.0", features = ["full", "tracing"] }
-fedimint-dummy-server = { workspace = true }
+fedimint-starter-server = { path = "../fedimint-starter-server" }

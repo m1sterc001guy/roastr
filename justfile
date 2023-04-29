@@ -24,9 +24,12 @@ check-ulimit:
       >&2 echo "⚠️  ulimit too small. Run 'ulimit -Sn 1024' to avoid problems running tests"
   fi
 
-# run tests
+# # run tests
+# test: build check-ulimit
+#   cargo test
+
 test: build check-ulimit
-  cargo test
+  ./scripts/test.sh
 
 # run lints (quick)
 lint:
