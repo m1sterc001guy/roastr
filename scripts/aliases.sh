@@ -8,3 +8,5 @@ alias fedimint-cli="\$FM_MINT_CLIENT"
 alias gateway-cln="\$FM_GWCLI_CLN"
 alias gateway-lnd="\$FM_GWCLI_LND"
 # alias restart="./scripts/restart-tmux.sh"
+
+export PATH=$PWD/target/release:$PATH
