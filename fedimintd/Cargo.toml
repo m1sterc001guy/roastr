@@ -9,6 +9,10 @@ description = "fedimintd with custom module set"
 name = "fedimintd"
 path = "src/main.rs"
 
+[[bin]]
+name = "distributedgen"
+path = "src/distributedgen.rs"
+
 [dependencies]
 anyhow = "1.0.66"
 fedimintd = { workspace = true }

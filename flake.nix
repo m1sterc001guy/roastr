@@ -8,7 +8,7 @@
       flake = false;
     };
     fedimint = {
-      url = "github:fedimint/fedimint?rev=6df0bc4c8a5776562ca845a62b2929edaae265f3";
+      url = "github:fedimint/fedimint?rev=b5085b3e3c84bb9e5aedbc8949cf33061a59945a";
     };
   };
 
@@ -51,7 +51,13 @@
             inherit fedimintd-custom;
             default = fedimintd-custom;
           };
-        devShells = fmLib.devShells;
+        devShells = fmLib.devShells // {
+          default = fmLib.devShells.default.overrideAttrs (prev: {
+            nativeBuildInputs = [
+              fedimint.packages.${system}.devimint
+              fedimint.packages.${system}.gateway-pkgs
+            ] ++ prev.nativeBuildInputs;
+          });
+        };
       });
-
 }
