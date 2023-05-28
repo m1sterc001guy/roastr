@@ -1,6 +1,11 @@
 [workspace]
 members = [
     "fedimintd",
+    "fedimint-cli",
+    "fedimint-starter-common",
+    "fedimint-starter-client",
+    "fedimint-starter-server",
+    "tests",
 ]
 resolver = "2"
 
@@ -16,12 +21,24 @@ license-file = "LICENSE"
 keywords = ["bitcoin", "lightning", "chaumian", "e-cash", "federated"]
 
 [workspace.dependencies]
-fedimintd = { git = "https://github.com/fedimint/fedimint", rev = "71c88e2eb54e7f2bbd34d4d632388e4954cc3d4e" }
-fedimint-core = { git = "https://github.com/fedimint/fedimint", rev = "71c88e2eb54e7f2bbd34d4d632388e4954cc3d4e" }
-fedimint-dummy= {  git = "https://github.com/fedimint/fedimint", rev = "71c88e2eb54e7f2bbd34d4d632388e4954cc3d4e",  features = [ "server" ] }
-aead = { git = "https://github.com/fedimint/fedimint", rev = "71c88e2eb54e7f2bbd34d4d632388e4954cc3d4e" }
+# uncomment these to work with local fedimint dependencies
+fedimintd = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
+fedimint-cli = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
+fedimint-core = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
+fedimint-client = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
+fedimint-logging = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
+devimint = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
+aead = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
 threshold_crypto = { git = "https://github.com/jkitman/threshold_crypto", branch = "upgrade-threshold-crypto-libs" }
-tbs = { git = "https://github.com/fedimint/fedimint", rev = "71c88e2eb54e7f2bbd34d4d632388e4954cc3d4e" }
+tbs = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
+
+# uncomment these to work with local fedimint dependencies
+# fedimintd = { path = "../fedimint/fedimintd" }
+# fedimint-cli = { path = "../fedimint/fedimint-cli" }
+# fedimint-core = { path = "../fedimint/fedimint-core" }
+# fedimint-client = { path = "../fedimint/fedimint-client" }
+# fedimint-logging = { path = "../fedimint/fedimint-logging" }
+# devimint = { path = "../fedimint/devimint" }
 
 [profile.dev]
 split-debuginfo = "packed"

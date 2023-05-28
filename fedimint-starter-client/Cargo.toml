@@ -1,0 +1,20 @@
+[package]
+name = "fedimint-starter-client"
+version = "0.1.0"
+authors = ["The Fedimint Developers"]
+edition = "2021"
+description = "fedimint-starter is a starter example fedimint module."
+license = "MIT"
+
+[lib]
+name = "fedimint_starter_client"
+path = "src/lib.rs"
+
+[dependencies]
+fedimint-client = { workspace = true }
+fedimint-core = { workspace = true }
+fedimint-starter-common = { path = "../fedimint-starter-common" }
+anyhow = "1.0.66"
+async-trait = "0.1"
+serde_json = "1.0.94"
+serde = "1.0.159"
