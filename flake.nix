@@ -8,7 +8,7 @@
       flake = false;
     };
     fedimint = {
-      url = "github:fedimint/fedimint?rev=b5085b3e3c84bb9e5aedbc8949cf33061a59945a";
+      url = "github:fedimint/fedimint?rev=6361d2ea0daf59f5114b698218065ea92353e387";
     };
   };
 
@@ -38,7 +38,7 @@
         craneLib = crane.lib.${system}.overrideToolchain fenixToolchain;
 
         fedimintd-custom = craneLib.buildPackage (commonArgsBase // {
-          pname = "fedimintd-ustom";
+          pname = "fedimintd-custom";
           version = "0.1.0";
           src = ./.;
           cargoExtraArgs = "--package fedimintd-custom";
