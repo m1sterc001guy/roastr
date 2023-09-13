@@ -649,9 +649,9 @@ dependencies = [
 
 [[package]]
 name = "cln-rpc"
-version = "0.1.4"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fc0228e674bd18614b04e56150f295ebeef4a0cfc1fd8d2a83feb70e9929f3e"
+checksum = "39f2cc1b4417e08a0b65a62395125998cd5ba5d38af96836dd1bfab3e168105a"
 dependencies = [
  "anyhow",
  "bitcoin",
