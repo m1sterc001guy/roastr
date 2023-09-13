@@ -9,12 +9,8 @@ description = "fedimintd with custom module set"
 name = "fedimintd"
 path = "src/fedimintd.rs"
 
-[[bin]]
-name = "distributedgen"
-path = "src/distributedgen.rs"
-
 [dependencies]
 anyhow = "1.0.66"
 fedimintd = { workspace = true }
 tokio = { version = "1.25.0", features = ["full", "tracing"] }
-fedimint-starter-server = { path = "../fedimint-starter-server" }
+fedimint-dummy-server = { path = "../fedimint-dummy-server" }

@@ -12,5 +12,5 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0.66"
 fedimint-cli = { workspace = true }
-fedimint-starter-client = { path = "../fedimint-starter-client" }
+fedimint-dummy-client = { path = "../fedimint-dummy-client" }
 tokio = { version = "1.25.0", features = ["full", "tracing"] }

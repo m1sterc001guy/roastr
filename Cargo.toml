@@ -2,9 +2,9 @@
 members = [
     "fedimintd",
     "fedimint-cli",
-    "fedimint-starter-common",
-    "fedimint-starter-client",
-    "fedimint-starter-server",
+    "fedimint-dummy-common",
+    "fedimint-dummy-client",
+    "fedimint-dummy-server",
     "tests",
 ]
 resolver = "2"
@@ -21,18 +21,18 @@ license-file = "LICENSE"
 keywords = ["bitcoin", "lightning", "chaumian", "e-cash", "federated"]
 
 [workspace.dependencies]
-# uncomment these to work with local fedimint dependencies
-fedimintd = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
-fedimint-cli = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
-fedimint-core = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
-fedimint-client = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
-fedimint-logging = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
-devimint = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
-aead = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
+fedimintd = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
+fedimint-cli = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
+fedimint-core = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
+fedimint-client = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
+fedimint-logging = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
+fedimint-server = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
+devimint = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
+aead = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
 threshold_crypto = { git = "https://github.com/jkitman/threshold_crypto", branch = "upgrade-threshold-crypto-libs" }
-tbs = { git = "https://github.com/fedimint/fedimint", rev = "5afef8c06f44c02db799091d37de067c6d10809d" }
+tbs = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
 
-# uncomment these to work with local fedimint dependencies
+# Comment above lines and uncomment these to work with local fedimint dependencies
 # fedimintd = { path = "../fedimint/fedimintd" }
 # fedimint-cli = { path = "../fedimint/fedimint-cli" }
 # fedimint-core = { path = "../fedimint/fedimint-core" }
@@ -64,4 +64,4 @@ threshold_crypto = { opt-level = 3 }
 
 [patch.crates-io]
 secp256k1-zkp = { git = "https://github.com/dpc/rust-secp256k1-zkp/", branch = "sanket-pr" }
-
+ring = { git = "https://github.com/dpc/ring", rev = "5493e7e76d0d8fb1d3cbb0be9c4944700741b802" }

@@ -1,13 +1,13 @@
 [package]
-name = "fedimint-starter-server"
+name = "fedimint-dummy-common"
 version = "0.1.0"
 authors = ["The Fedimint Developers"]
 edition = "2021"
-description = "fedimint-starter is a starter example fedimint module."
+description = "fedimint-dummy is a dummy example fedimint module."
 license = "MIT"
 
 [lib]
-name = "fedimint_starter_server"
+name = "fedimint_dummy_common"
 path = "src/lib.rs"
 
 [dependencies]
@@ -16,11 +16,12 @@ async-trait = "0.1"
 bitcoin_hashes = "0.11.0"
 erased-serde = "0.3"
 futures = "0.3"
-fedimint-core = { workspace = true }
-fedimint-starter-common = { path = "../fedimint-starter-common" }
+fedimint-core ={ workspace = true }
 rand = "0.8"
 serde = { version = "1.0.149", features = [ "derive" ] }
+secp256k1 = "0.24.2"
 strum = "0.24"
 strum_macros = "0.24"
-thiserror = "1.0.9"
+thiserror = "1.0.39"
 tracing = "0.1.37"
+threshold_crypto = { git = "https://github.com/fedimint/threshold_crypto" }
