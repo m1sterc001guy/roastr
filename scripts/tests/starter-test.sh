@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sets up environment variables for devimint-based tests
+# Verifies printing money via the dummy module
 
 set -euo pipefail
 export RUST_LOG="${RUST_LOG:-info}"

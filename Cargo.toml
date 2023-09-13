@@ -29,7 +29,7 @@ fedimint-logging = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0
 fedimint-server = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
 devimint = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
 aead = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
-threshold_crypto = { git = "https://github.com/jkitman/threshold_crypto", branch = "upgrade-threshold-crypto-libs" }
+threshold_crypto = { git = "https://github.com/fedimint/threshold_crypto" }
 tbs = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
 
 # Comment above lines and uncomment these to work with local fedimint dependencies

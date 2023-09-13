@@ -18,11 +18,11 @@ use fedimint_core::module::{
 use fedimint_core::server::DynServerModule;
 use fedimint_core::task::TaskGroup;
 use fedimint_core::{push_db_pair_items, Amount, NumPeers, OutPoint, PeerId, ServerModule};
-use fedimint_dummy_common::config::{
+pub use fedimint_dummy_common::config::{
     DummyClientConfig, DummyConfig, DummyConfigConsensus, DummyConfigLocal, DummyConfigPrivate,
     DummyGenParams,
 };
-use fedimint_dummy_common::{
+pub use fedimint_dummy_common::{
     fed_public_key, DummyCommonGen, DummyConsensusItem, DummyError, DummyInput, DummyModuleTypes,
     DummyOutput, DummyOutputOutcome, CONSENSUS_VERSION, KIND,
 };

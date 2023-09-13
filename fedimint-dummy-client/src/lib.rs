@@ -1,3 +1,5 @@
+use std::ffi;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -305,6 +307,39 @@ impl ClientModule for DummyClientModule {
                     }
                 }),
         )
+    }
+
+    async fn handle_cli_command(
+        &self,
+        client: &Client,
+        args: &[ffi::OsString],
+    ) -> anyhow::Result<serde_json::Value> {
+        if args.is_empty() {
+            return Err(anyhow::format_err!(
+                "Expected to be called with at least 1 arguments: <command> …"
+            ));
+        }
+
+        let command = args[0].to_string_lossy();
+
+        match command.as_ref() {
+            "print-money" => {
+                if args.len() != 2 {
+                    return Err(anyhow::format_err!(
+                        "`print-money` command expects 1 argument: <amount-msats>"
+                    ));
+                }
+
+                Ok(serde_json::to_value(
+                    client
+                        .print_money(Amount::from_str(&args[1].to_string_lossy())?)
+                        .await?,
+                )?)
+            }
+            command => Err(anyhow::format_err!(
+                "Unknown command: {command}, supported commands: print-money"
+            )),
+        }
     }
 }
 

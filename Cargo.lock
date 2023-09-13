@@ -1244,6 +1244,7 @@ dependencies = [
  "rand",
  "secp256k1",
  "serde",
+ "serde_json",
  "thiserror",
  "threshold_crypto",
  "tracing",
