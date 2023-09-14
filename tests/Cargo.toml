@@ -15,6 +15,6 @@ devimint = { workspace = true }
 fedimint-cli = { workspace = true }
 fedimint-core = { workspace = true }
 fedimint-logging = { workspace = true }
-fedimint-starter-client = { path = "../fedimint-starter-client" }
+fedimint-dummy-client = { path = "../fedimint-dummy-client" }
 tokio = { version = "1.25.0", features = ["full", "tracing"] }
 tracing = "0.1.37"

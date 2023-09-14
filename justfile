@@ -29,7 +29,7 @@ check-ulimit:
 #   cargo test
 
 test: build check-ulimit
-  ./scripts/test.sh
+  ./scripts/tests/starter-test.sh
 
 # run lints (quick)
 lint:
@@ -74,7 +74,7 @@ format:
 
 # start mprocs with a dev federation setup
 mprocs:
-  ./scripts/mprocs.sh
+  ./scripts/dev/mprocs/run.sh
 
 # exit mprocs session
 exit-mprocs:
@@ -82,7 +82,7 @@ exit-mprocs:
 
 # start tmuxinator with dev federation setup
 tmuxinator:
-  ./scripts/tmuxinator.sh
+  ./scripts/dev/tmuxinator/run.sh
 
 # exit tmuxinator session
 exit-tmuxinator:
