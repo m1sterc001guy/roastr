@@ -2,7 +2,7 @@
 
 > "There are no other rights in substance without the freedom to transact." - Punk6529
 
-[Fedimint](https://github.com/fedimint/fedimint) is a module based system for building federated applications. It is designed to be a trust-minimized, censorship-resistant, and private alternative to centralized applications.
+[Fedimint](https://github.com/fedimint/fedimint) is a module based system for building federated applications. It is designed to be a trust-minimized, censorship-resistant, and private alternative to centralized applications. This repo is a starter template for building your own custom module for Fedimint, and we're always happy to help if you have any questions. Please reach out to us on our [Developer Discord](https://discord.gg/cEVEmqCgWG) if you need any help!
 
 Fedimint ships with 3 default modules: Bitcoin, Lightning, and Chaumian Ecash, for out-of-the-box best practices for private and trust-minimized payments. A custom module defines further consensus items and transaction types that can leverage these modules to create a federated application.
 
@@ -13,33 +13,6 @@ A fedimint module consists of 3 parts:
 1. `fedimint-server` : this contains server side code run by the federation guardians. This is where you define the consensus items, transaction types, and transaction validation rules.
 2. `fedimint-client` : this contains client side code run by the client. This is where you define the logic for clients to build, sign, and submit transactions to the federation.
 3. `fedimint-common` : this contains common code shared by both the server and client.
-
-Below is a diagram of the general architecture of a fedimint module and how it interacts with the rest of the fedimint system.
-
-```mermaid
-flowchart BT;
-    d(<b>fedimintd</b> server binary)
-    server(<b>fedimint-server</b> runs consensus)
-    app(<b>fedimint-app</b> client binary)
-    core(<b>fedimint-core</b> types, network, database, crypto)
-    client(<b>fedimint-client</b> handles txs)
-
-    mcore("<b>&lt;module>-core</b>" common types)
-    mclient("<b>&lt;module>-client</b>")
-    mserver("<b>&lt;module>-server</b>")
-
-    d-->|loads modules|server
-    d-->|configures|mserver
-    mserver-->|defines endpoints|mcore
-    mserver-->|implements server mod|server
-    mcore-->|implements types|core
-    mclient-->|implements client mod|client
-    mclient-->|handles requests|mcore
-    client-->|uses api|core
-    server-->|uses api|core
-    app-->|configures|mclient
-    app-->|builds client|client
-```
 
 ### Fedimint Transactions
 
@@ -151,3 +124,32 @@ It interacts with a database to store and retrieve various types of data related
 
 - DummyGen (Non-Consensus Functions): Implements the `ServerModuleInit` trait, providing methods for module initialization, database migrations, and configuration generation.
 - Dummy (Consensus and Module Operations): Implements the `ServerModule` trait, providing methods for processing consensus proposals, input and output transactions, and auditing. Handles the creation of consensus proposals for signing requests and processes incoming consensus items. Implements input and output processing, including fund transfers and fee calculations.
+
+## Fedimint General ModuleArchitecture
+
+Below is a diagram of the general architecture of a fedimint module and how it interacts with the rest of the fedimint system. Building fedimint modules can be a bit complicated, so again please reach out to us on our [Developer Discord](https://discord.gg/cEVEmqCgWG) if you have any questions. We're always happy to help!
+
+```mermaid
+flowchart BT;
+    d(<b>fedimintd</b> server binary)
+    server(<b>fedimint-server</b> runs consensus)
+    app(<b>fedimint-app</b> client binary)
+    core(<b>fedimint-core</b> types, network, database, crypto)
+    client(<b>fedimint-client</b> handles txs)
+
+    mcore("<b>&lt;module>-core</b>" common types)
+    mclient("<b>&lt;module>-client</b>")
+    mserver("<b>&lt;module>-server</b>")
+
+    d-->|loads modules|server
+    d-->|configures|mserver
+    mserver-->|defines endpoints|mcore
+    mserver-->|implements server mod|server
+    mcore-->|implements types|core
+    mclient-->|implements client mod|client
+    mclient-->|handles requests|mcore
+    client-->|uses api|core
+    server-->|uses api|core
+    app-->|configures|mclient
+    app-->|builds client|client
+```
