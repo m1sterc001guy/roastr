@@ -2,9 +2,37 @@
 
 > "There are no other rights in substance without the freedom to transact." - Punk6529
 
-[Fedimint](https://github.com/fedimint/fedimint) is a module based system for building federated applications. It is designed to be a trust-minimized, censorship-resistant, and private alternative to centralized applications. This repo is a starter template for building your own custom module for Fedimint, and we're always happy to help if you have any questions. Please reach out to us on our [Developer Discord](https://discord.gg/cEVEmqCgWG) if you need any help!
+[Fedimint](https://github.com/fedimint/fedimint) is a module based system for building federated applications. It is designed to be a trust-minimized, censorship-resistant, and private alternative to centralized applications. This repo is a starter template for building your own custom module for Fedimint, and we're always happy to help if you have any questions.
 
 Fedimint ships with 3 default modules: Bitcoin, Lightning, and Chaumian Ecash, for out-of-the-box best practices for private and trust-minimized payments. A custom module defines further consensus items and transaction types that can leverage these modules to create a federated application.
+
+Please reach out to us on our [Developer Discord](https://discord.gg/cEVEmqCgWG) if you need any help!
+
+## Running the Starter Template
+
+To run the starter template, you'll need to have Nix installed.
+
+```bash
+sh <(curl -L https://nixos.org/nix/install) --daemon
+```
+
+Then, fork and clone this repo
+
+```bash
+git clone https://github.com/your-username/fedimint-custom-modules-example.git
+```
+
+and run the following command to start the nix developer environment
+
+```bash
+nix develop
+```
+
+Then, you can run fedimint with the custom module in mprocs with
+
+```bash
+just mprocs
+```
 
 ## Fedimint General Module Architecture
 
