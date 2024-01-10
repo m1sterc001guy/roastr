@@ -1,181 +1,48 @@
-use std::ffi;
-use std::str::FromStr;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{format_err, Context as _};
-use fedimint_client::derivable_secret::DerivableSecret;
-use fedimint_client::module::init::ClientModuleInit;
-use fedimint_client::module::{ClientModule, IClientModule};
-use fedimint_client::sm::{Context, ModuleNotifier, OperationId};
+use anyhow::{anyhow, format_err, Context as _};
+use common::broken_fed_key_pair;
+use db::DbKeyPrefix;
+use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
+use fedimint_client::module::recovery::NoModuleBackup;
+use fedimint_client::module::{ClientContext, ClientModule, IClientModule};
+use fedimint_client::sm::{Context, ModuleNotifier};
 use fedimint_client::transaction::{ClientInput, ClientOutput, TransactionBuilder};
-use fedimint_client::{Client, DynGlobalClientContext};
-use fedimint_core::api::{DynGlobalApi, DynModuleApi, GlobalFederationApi};
-use fedimint_core::config::FederationId;
-use fedimint_core::core::{Decoder, IntoDynInstance, KeyPair};
-use fedimint_core::db::{Database, ModuleDatabaseTransaction};
+use fedimint_client::DynGlobalClientContext;
+use fedimint_core::api::GlobalFederationApi;
+use fedimint_core::core::{Decoder, KeyPair, OperationId};
+use fedimint_core::db::{Database, DatabaseTransaction, IDatabaseTransactionOpsCoreTyped};
 use fedimint_core::module::{
-    ApiVersion, CommonModuleInit, ExtendsCommonModuleInit, ModuleCommon, MultiApiVersion,
-    TransactionItemAmount,
+    ApiVersion, CommonModuleInit, ModuleCommon, ModuleInit, MultiApiVersion, TransactionItemAmount,
 };
 use fedimint_core::util::{BoxStream, NextOrPending};
 use fedimint_core::{apply, async_trait_maybe_send, Amount, OutPoint};
 pub use fedimint_dummy_common as common;
 use fedimint_dummy_common::config::DummyClientConfig;
 use fedimint_dummy_common::{
-    fed_key_pair, fed_public_key, DummyCommonGen, DummyInput, DummyModuleTypes, DummyOutput,
-    DummyOutputOutcome, KIND,
+    fed_key_pair, DummyCommonInit, DummyInput, DummyModuleTypes, DummyOutput, DummyOutputOutcome,
+    KIND,
 };
 use futures::{pin_mut, StreamExt};
-use secp256k1::{Secp256k1, XOnlyPublicKey};
+use secp256k1::{PublicKey, Secp256k1};
 use states::DummyStateMachine;
-use threshold_crypto::{PublicKey, Signature};
+use strum::IntoEnumIterator;
 
-use crate::api::DummyFederationApi;
 use crate::db::DummyClientFundsKeyV0;
 
 pub mod api;
 mod db;
-mod states;
-
-/// Exposed API calls for client apps
-#[apply(async_trait_maybe_send!)]
-pub trait DummyClientExt {
-    /// Request the federation prints money for us
-    async fn print_money(&self, amount: Amount) -> anyhow::Result<(OperationId, OutPoint)>;
-
-    /// Send money to another user
-    async fn send_money(&self, account: XOnlyPublicKey, amount: Amount)
-        -> anyhow::Result<OutPoint>;
-
-    /// Wait to receive money at an outpoint
-    async fn receive_money(&self, outpoint: OutPoint) -> anyhow::Result<()>;
-
-    /// Request the federation signs a message for us
-    async fn fed_signature(&self, message: &str) -> anyhow::Result<Signature>;
-
-    /// Return our account
-    fn account(&self) -> XOnlyPublicKey;
-
-    /// Return the fed's public key
-    fn fed_public_key(&self) -> PublicKey;
-}
-
-#[apply(async_trait_maybe_send!)]
-impl DummyClientExt for Client {
-    async fn print_money(&self, amount: Amount) -> anyhow::Result<(OperationId, OutPoint)> {
-        let (_dummy, instance) = self.get_first_module::<DummyClientModule>(&KIND);
-        let op_id = OperationId(rand::random());
-
-        // TODO: Building a tx could be easier
-        // Create input using the fed's account
-        let input = ClientInput {
-            input: DummyInput {
-                amount,
-                account: fed_public_key(),
-            },
-            keys: vec![fed_key_pair()],
-            state_machines: Arc::new(move |_, _| Vec::<DummyStateMachine>::new()),
-        };
-
-        // Build and send tx to the fed
-        // Will output to our primary client module
-        let tx = TransactionBuilder::new().with_input(input.into_dyn(instance.id));
-        let outpoint = |txid, _| OutPoint { txid, out_idx: 0 };
-        let txid = self
-            .finalize_and_submit_transaction(op_id, KIND.as_str(), outpoint, tx)
-            .await?;
-
-        // Wait for the output of the primary module
-        self.await_primary_module_output(op_id, OutPoint { txid, out_idx: 0 })
-            .await
-            .context("Waiting for the output of print_money")?;
-
-        Ok((op_id, OutPoint { txid, out_idx: 0 }))
-    }
-
-    async fn send_money(
-        &self,
-        account: XOnlyPublicKey,
-        amount: Amount,
-    ) -> anyhow::Result<OutPoint> {
-        let (dummy, instance) = self.get_first_module::<DummyClientModule>(&KIND);
-        let mut dbtx = instance.db.begin_transaction().await;
-        let op_id = OperationId(rand::random());
-
-        // TODO: Building a tx could be easier
-        // Create input using our own account
-        let input = fedimint_client::module::ClientModule::create_sufficient_input(
-            dummy,
-            &mut dbtx.get_isolated(),
-            op_id,
-            amount,
-        )
-        .await?;
-        dbtx.commit_tx().await;
-
-        // Create output using another account
-        let output = ClientOutput {
-            output: DummyOutput { amount, account },
-            state_machines: Arc::new(move |_, _| Vec::<DummyStateMachine>::new()),
-        };
-
-        // Build and send tx to the fed
-        let tx = TransactionBuilder::new()
-            .with_input(input.into_dyn(instance.id))
-            .with_output(output.into_dyn(instance.id));
-        let outpoint = |txid, _| OutPoint { txid, out_idx: 0 };
-        let txid = self
-            .finalize_and_submit_transaction(op_id, DummyCommonGen::KIND.as_str(), outpoint, tx)
-            .await?;
-
-        let tx_subscription = self.transaction_updates(op_id).await;
-        tx_subscription.await_tx_accepted(txid).await?;
-
-        Ok(OutPoint { txid, out_idx: 0 })
-    }
-
-    async fn receive_money(&self, outpoint: OutPoint) -> anyhow::Result<()> {
-        let (dummy, instance) = self.get_first_module::<DummyClientModule>(&KIND);
-        let mut dbtx = instance.db.begin_transaction().await;
-        let DummyOutputOutcome(new_balance, account) = self
-            .api()
-            .await_output_outcome(outpoint, Duration::from_secs(10), &dummy.decoder())
-            .await?;
-
-        if account != dummy.key.x_only_public_key().0 {
-            return Err(format_err!("Wrong account id"));
-        }
-
-        dbtx.insert_entry(&DummyClientFundsKeyV0, &new_balance)
-            .await;
-        dbtx.commit_tx().await;
-        Ok(())
-    }
-
-    async fn fed_signature(&self, message: &str) -> anyhow::Result<Signature> {
-        let (_dummy, instance) = self.get_first_module::<DummyClientModule>(&KIND);
-        instance.api.sign_message(message.to_string()).await?;
-        let sig = instance.api.wait_signed(message.to_string()).await?;
-        Ok(sig.0)
-    }
-
-    fn account(&self) -> XOnlyPublicKey {
-        let (dummy, _instance) = self.get_first_module::<DummyClientModule>(&KIND);
-        dummy.key.x_only_public_key().0
-    }
-
-    fn fed_public_key(&self) -> PublicKey {
-        let (dummy, _instance) = self.get_first_module::<DummyClientModule>(&KIND);
-        dummy.cfg.fed_public_key
-    }
-}
+pub mod states;
 
 #[derive(Debug)]
 pub struct DummyClientModule {
     cfg: DummyClientConfig,
     key: KeyPair,
     notifier: ModuleNotifier<DynGlobalClientContext, DummyStateMachine>,
+    client_ctx: ClientContext<Self>,
+    db: Database,
 }
 
 /// Data needed by the state machine
@@ -189,7 +56,9 @@ impl Context for DummyClientContext {}
 
 #[apply(async_trait_maybe_send!)]
 impl ClientModule for DummyClientModule {
+    type Init = DummyClientInit;
     type Common = DummyModuleTypes;
+    type Backup = NoModuleBackup;
     type ModuleStateMachineContext = DummyClientContext;
     type States = DummyStateMachine;
 
@@ -199,21 +68,24 @@ impl ClientModule for DummyClientModule {
         }
     }
 
-    fn input_amount(&self, input: &<Self::Common as ModuleCommon>::Input) -> TransactionItemAmount {
-        TransactionItemAmount {
+    fn input_amount(
+        &self,
+        input: &<Self::Common as ModuleCommon>::Input,
+    ) -> Option<TransactionItemAmount> {
+        Some(TransactionItemAmount {
             amount: input.amount,
             fee: self.cfg.tx_fee,
-        }
+        })
     }
 
     fn output_amount(
         &self,
         output: &<Self::Common as ModuleCommon>::Output,
-    ) -> TransactionItemAmount {
-        TransactionItemAmount {
+    ) -> Option<TransactionItemAmount> {
+        Some(TransactionItemAmount {
             amount: output.amount,
             fee: self.cfg.tx_fee,
-        }
+        })
     }
 
     fn supports_being_primary(&self) -> bool {
@@ -222,10 +94,12 @@ impl ClientModule for DummyClientModule {
 
     async fn create_sufficient_input(
         &self,
-        dbtx: &mut ModuleDatabaseTransaction<'_>,
+        dbtx: &mut DatabaseTransaction<'_>,
         id: OperationId,
         amount: Amount,
-    ) -> anyhow::Result<ClientInput<<Self::Common as ModuleCommon>::Input, Self::States>> {
+    ) -> anyhow::Result<Vec<ClientInput<<Self::Common as ModuleCommon>::Input, Self::States>>> {
+        dbtx.ensure_isolated().expect("must be isolated");
+
         // Check and subtract from our funds
         let funds = get_funds(dbtx).await;
         if funds < amount {
@@ -235,34 +109,34 @@ impl ClientModule for DummyClientModule {
         dbtx.insert_entry(&DummyClientFundsKeyV0, &updated).await;
 
         // Construct input and state machine to track the tx
-        Ok(ClientInput {
+        Ok(vec![ClientInput {
             input: DummyInput {
                 amount,
-                account: self.key.x_only_public_key().0,
+                account: self.key.public_key(),
             },
             keys: vec![self.key],
             state_machines: Arc::new(move |txid, _| {
                 vec![DummyStateMachine::Input(amount, txid, id)]
             }),
-        })
+        }])
     }
 
     async fn create_exact_output(
         &self,
-        _dbtx: &mut ModuleDatabaseTransaction<'_>,
+        _dbtx: &mut DatabaseTransaction<'_>,
         id: OperationId,
         amount: Amount,
-    ) -> ClientOutput<<Self::Common as ModuleCommon>::Output, Self::States> {
+    ) -> Vec<ClientOutput<<Self::Common as ModuleCommon>::Output, Self::States>> {
         // Construct output and state machine to track the tx
-        ClientOutput {
+        vec![ClientOutput {
             output: DummyOutput {
                 amount,
-                account: self.key.x_only_public_key().0,
+                account: self.key.public_key(),
             },
             state_machines: Arc::new(move |txid, _| {
                 vec![DummyStateMachine::Output(amount, txid, id)]
             }),
-        }
+        }]
     }
 
     async fn await_primary_module_output(
@@ -289,7 +163,7 @@ impl ClientModule for DummyClientModule {
         stream.next_or_pending().await
     }
 
-    async fn get_balance(&self, dbtc: &mut ModuleDatabaseTransaction<'_>) -> Amount {
+    async fn get_balance(&self, dbtc: &mut DatabaseTransaction<'_>) -> Amount {
         get_funds(dbtc).await
     }
 
@@ -308,57 +182,172 @@ impl ClientModule for DummyClientModule {
                 }),
         )
     }
+}
 
-    async fn handle_cli_command(
+impl DummyClientModule {
+    pub async fn print_using_account(
         &self,
-        client: &Client,
-        args: &[ffi::OsString],
-    ) -> anyhow::Result<serde_json::Value> {
-        if args.is_empty() {
-            return Err(anyhow::format_err!(
-                "Expected to be called with at least 1 arguments: <command> …"
-            ));
+        amount: Amount,
+        account_kp: KeyPair,
+    ) -> anyhow::Result<(OperationId, OutPoint)> {
+        let op_id = OperationId(rand::random());
+
+        // TODO: Building a tx could be easier
+        // Create input using the fed's account
+        let input = ClientInput {
+            input: DummyInput {
+                amount,
+                account: account_kp.public_key(),
+            },
+            keys: vec![account_kp],
+            state_machines: Arc::new(move |_, _| Vec::<DummyStateMachine>::new()),
+        };
+
+        // Build and send tx to the fed
+        // Will output to our primary client module
+        let tx = TransactionBuilder::new().with_input(self.client_ctx.make_client_input(input));
+        let outpoint = |txid, _| OutPoint { txid, out_idx: 0 };
+        let (_, change) = self
+            .client_ctx
+            .finalize_and_submit_transaction(op_id, KIND.as_str(), outpoint, tx)
+            .await?;
+
+        // Wait for the output of the primary module
+        self.client_ctx
+            .await_primary_module_outputs(op_id, change.clone())
+            .await
+            .context("Waiting for the output of print_using_account")?;
+
+        Ok((op_id, change[0]))
+    }
+
+    /// Request the federation prints money for us
+    pub async fn print_money(&self, amount: Amount) -> anyhow::Result<(OperationId, OutPoint)> {
+        self.print_using_account(amount, fed_key_pair()).await
+    }
+
+    /// Use a broken printer to print a liability instead of money
+    /// If the federation is honest, should always fail
+    pub async fn print_liability(&self, amount: Amount) -> anyhow::Result<(OperationId, OutPoint)> {
+        self.print_using_account(amount, broken_fed_key_pair())
+            .await
+    }
+
+    /// Send money to another user
+    pub async fn send_money(&self, account: PublicKey, amount: Amount) -> anyhow::Result<OutPoint> {
+        self.db.ensure_isolated().expect("must be isolated");
+        let mut dbtx = self.db.begin_transaction().await;
+        let op_id = OperationId(rand::random());
+
+        // TODO: Building a tx could be easier
+        // Create input using our own account
+        let inputs = self
+            .client_ctx
+            .map_dyn(
+                fedimint_client::module::ClientModule::create_sufficient_input(
+                    self,
+                    &mut dbtx.to_ref_nc(),
+                    op_id,
+                    amount,
+                )
+                .await?,
+            )
+            .collect();
+
+        dbtx.commit_tx().await;
+
+        // Create output using another account
+        let output = ClientOutput {
+            output: DummyOutput { amount, account },
+            state_machines: Arc::new(move |_, _| Vec::<DummyStateMachine>::new()),
+        };
+
+        // Build and send tx to the fed
+        let tx = TransactionBuilder::new()
+            .with_inputs(inputs)
+            .with_output(self.client_ctx.make_client_output(output));
+
+        let outpoint = |txid, _| OutPoint { txid, out_idx: 0 };
+        let (txid, _) = self
+            .client_ctx
+            .finalize_and_submit_transaction(op_id, DummyCommonInit::KIND.as_str(), outpoint, tx)
+            .await?;
+
+        let tx_subscription = self.client_ctx.transaction_updates(op_id).await;
+
+        tx_subscription
+            .await_tx_accepted(txid)
+            .await
+            .map_err(|e| anyhow!(e))?;
+
+        Ok(OutPoint { txid, out_idx: 0 })
+    }
+
+    /// Wait to receive money at an outpoint
+    pub async fn receive_money(&self, outpoint: OutPoint) -> anyhow::Result<()> {
+        let mut dbtx = self.db.begin_transaction().await;
+        let DummyOutputOutcome(new_balance, account) = self
+            .client_ctx
+            .global_api()
+            .await_output_outcome(outpoint, Duration::from_secs(10), &self.decoder())
+            .await?;
+
+        if account != self.key.public_key() {
+            return Err(format_err!("Wrong account id"));
         }
 
-        let command = args[0].to_string_lossy();
+        dbtx.insert_entry(&DummyClientFundsKeyV0, &new_balance)
+            .await;
+        dbtx.commit_tx().await;
+        Ok(())
+    }
 
-        match command.as_ref() {
-            "print-money" => {
-                if args.len() != 2 {
-                    return Err(anyhow::format_err!(
-                        "`print-money` command expects 1 argument: <amount-msats>"
-                    ));
-                }
-
-                Ok(serde_json::to_value(
-                    client
-                        .print_money(Amount::from_str(&args[1].to_string_lossy())?)
-                        .await?,
-                )?)
-            }
-            command => Err(anyhow::format_err!(
-                "Unknown command: {command}, supported commands: print-money"
-            )),
-        }
+    /// Return our account
+    pub fn account(&self) -> PublicKey {
+        self.key.public_key()
     }
 }
 
-async fn get_funds(dbtx: &mut ModuleDatabaseTransaction<'_>) -> Amount {
+async fn get_funds(dbtx: &mut DatabaseTransaction<'_>) -> Amount {
     let funds = dbtx.get_value(&DummyClientFundsKeyV0).await;
     funds.unwrap_or(Amount::ZERO)
 }
 
 #[derive(Debug, Clone)]
-pub struct DummyClientGen;
+pub struct DummyClientInit;
 
 // TODO: Boilerplate-code
-impl ExtendsCommonModuleInit for DummyClientGen {
-    type Common = DummyCommonGen;
+#[apply(async_trait_maybe_send!)]
+impl ModuleInit for DummyClientInit {
+    type Common = DummyCommonInit;
+
+    async fn dump_database(
+        &self,
+        dbtx: &mut DatabaseTransaction<'_>,
+        prefix_names: Vec<String>,
+    ) -> Box<dyn Iterator<Item = (String, Box<dyn erased_serde::Serialize + Send>)> + '_> {
+        let mut items: BTreeMap<String, Box<dyn erased_serde::Serialize + Send>> = BTreeMap::new();
+        let filtered_prefixes = DbKeyPrefix::iter().filter(|f| {
+            prefix_names.is_empty() || prefix_names.contains(&f.to_string().to_lowercase())
+        });
+
+        for table in filtered_prefixes {
+            match table {
+                DbKeyPrefix::ClientFunds => {
+                    if let Some(funds) = dbtx.get_value(&DummyClientFundsKeyV0).await {
+                        items.insert("Dummy Funds".to_string(), Box::new(funds));
+                    }
+                }
+            }
+        }
+
+        Box::new(items.into_iter())
+    }
 }
 
 /// Generates the client module
 #[apply(async_trait_maybe_send!)]
-impl ClientModuleInit for DummyClientGen {
+impl ClientModuleInit for DummyClientInit {
     type Module = DummyClientModule;
 
     fn supported_api_versions(&self) -> MultiApiVersion {
@@ -366,21 +355,16 @@ impl ClientModuleInit for DummyClientGen {
             .expect("no version conflicts")
     }
 
-    async fn init(
-        &self,
-        _federation_id: FederationId,
-        cfg: DummyClientConfig,
-        _db: Database,
-        _api_version: ApiVersion,
-        module_root_secret: DerivableSecret,
-        notifier: ModuleNotifier<DynGlobalClientContext, <Self::Module as ClientModule>::States>,
-        _api: DynGlobalApi,
-        _module_api: DynModuleApi,
-    ) -> anyhow::Result<Self::Module> {
+    async fn init(&self, args: &ClientModuleInitArgs<Self>) -> anyhow::Result<Self::Module> {
         Ok(DummyClientModule {
-            cfg,
-            key: module_root_secret.to_secp_key(&Secp256k1::new()),
-            notifier,
+            cfg: args.cfg().clone(),
+            key: args
+                .module_root_secret()
+                .clone()
+                .to_secp_key(&Secp256k1::new()),
+            notifier: args.notifier().clone(),
+            client_ctx: args.context(),
+            db: args.db().clone(),
         })
     }
 }

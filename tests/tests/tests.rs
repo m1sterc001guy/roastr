@@ -1,6 +1,11 @@
-use devimint::{cmd, dev_fed, util::ProcessManager, vars, DevFed};
-use fedimint_core::{task::TaskGroup, util::write_overwrite_async};
-use std::{env, fmt::Write, path::Path};
+use std::env;
+use std::fmt::Write;
+use std::path::Path;
+
+use devimint::util::ProcessManager;
+use devimint::{cmd, dev_fed, vars, DevFed};
+use fedimint_core::task::TaskGroup;
+use fedimint_core::util::write_overwrite_async;
 use tokio::fs;
 use tracing::{debug, info};
 

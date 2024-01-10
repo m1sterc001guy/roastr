@@ -1,6 +1,6 @@
 [package]
 name = "fedimint-starter-tests"
-version = "0.1.0"
+version = "0.2.1"
 authors = ["The Fedimint Developers"]
 edition = "2021"
 description = "tests for starter module"

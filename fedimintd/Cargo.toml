@@ -1,6 +1,6 @@
 [package]
 name = "fedimintd-custom"
-version = "0.1.0"
+version = "0.2.1"
 authors = ["The Fedimint Developers"]
 edition = "2021"
 description = "fedimintd with custom module set"
@@ -14,3 +14,4 @@ anyhow = "1.0.66"
 fedimintd = { workspace = true }
 tokio = { version = "1.25.0", features = ["full", "tracing"] }
 fedimint-dummy-server = { path = "../fedimint-dummy-server" }
+fedimint-dummy-common = { path = "../fedimint-dummy-common" }
