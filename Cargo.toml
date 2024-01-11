@@ -21,16 +21,16 @@ license-file = "LICENSE"
 keywords = ["bitcoin", "lightning", "chaumian", "e-cash", "federated"]
 
 [workspace.dependencies]
-fedimintd = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
-fedimint-cli = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
-fedimint-core = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
-fedimint-client = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
-fedimint-logging = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
-fedimint-server = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
-devimint = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
-aead = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
+fedimintd = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
+fedimint-cli = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
+fedimint-core = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
+fedimint-client = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
+fedimint-logging = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
+fedimint-server = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
+devimint = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
+aead = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
 threshold_crypto = { git = "https://github.com/fedimint/threshold_crypto" }
-tbs = { git = "https://github.com/fedimint/fedimint", tag = "v0.1.0" }
+tbs = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
 
 # Comment above lines and uncomment these to work with local fedimint dependencies
 # fedimintd = { path = "../fedimint/fedimintd" }
@@ -60,8 +60,3 @@ bls12_381 = { opt-level = 3 }
 subtle = { opt-level = 3 }
 ring = { opt-level = 3 }
 threshold_crypto = { opt-level = 3 }
-
-
-[patch.crates-io]
-secp256k1-zkp = { git = "https://github.com/dpc/rust-secp256k1-zkp/", branch = "sanket-pr" }
-ring = { git = "https://github.com/dpc/ring", rev = "5493e7e76d0d8fb1d3cbb0be9c4944700741b802" }

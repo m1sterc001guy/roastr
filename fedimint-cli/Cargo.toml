@@ -1,6 +1,6 @@
 [package]
 name = "fedimint-cli-custom"
-version = "0.1.0"
+version = "0.2.1"
 authors = ["The Fedimint Developers"]
 edition = "2021"
 description = "fedimint-cli with custom module set"

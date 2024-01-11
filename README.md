@@ -48,7 +48,7 @@ Fedimint's fundamental structure is the [`Transaction`](https://github.com/fedim
 
 - Pegging-In to the fedimint is a Transaction with a Bitcoin input (onchain deposit to the federation) and an Ecash output (mint issuance to the client).
 - A lightning payment is an Ecash input (locking ecash and a lightning invoice to a contract) and a Lightning output (proof of payment of the lightning invoice and reissuance of the locked ecash to the gateway who paid the invoice).
-- A custom module like the dummy module in this starter template defines its own inputs and outputs. A dummy transaction might define an input of ecash and an ouput as ecash locked to a public key as the basis of an account system.
+- A custom module like the dummy module in this starter template defines its own inputs and outputs. A dummy transaction might define an input of ecash and an output as ecash locked to a public key as the basis of an account system.
 
 Each input and output belongs to a certain module (e.g. Mint, Wallet, Dummy, etc...). All inputs have to add up to the same sum as all outputs. Each input has an associated Schnorr key pair, and the transaction signature is a Musig2 aggregate signature of all the input keys.
 
