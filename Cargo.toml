@@ -5,6 +5,7 @@ members = [
     "fedimint-dummy-common",
     "fedimint-dummy-client",
     "fedimint-dummy-server",
+    "fedimint-dummy-tests",
     "tests",
 ]
 resolver = "2"
@@ -27,6 +28,7 @@ fedimint-core = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
 fedimint-client = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
 fedimint-logging = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
 fedimint-server = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
+fedimint-testing = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
 devimint = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
 aead = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
 threshold_crypto = { git = "https://github.com/fedimint/threshold_crypto" }
