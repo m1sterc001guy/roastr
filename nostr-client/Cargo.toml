@@ -1,19 +1,19 @@
 [package]
-name = "fedimint-dummy-client"
-version = "0.2.1"
-authors = ["The Fedimint Developers"]
+name = "nostr-client"
+version = "0.0.1"
+authors = ["m1sterc001guy"]
 edition = "2021"
-description = "fedimint-dummy is a dummy example fedimint module."
+description = "A federated nostr client."
 license = "MIT"
 
 [lib]
-name = "fedimint_dummy_client"
+name = "nostr_client"
 path = "src/lib.rs"
 
 [dependencies]
 async-trait = "0.1.73"
 anyhow = "1.0.66"
-fedimint-dummy-common ={ path = "../fedimint-dummy-common" }
+nostr-common ={ path = "../nostr-common" }
 fedimint-client = { workspace = true }
 fedimint-core ={ workspace = true }
 futures = "0.3"

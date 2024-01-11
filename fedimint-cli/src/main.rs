@@ -4,7 +4,7 @@ use fedimint_cli::FedimintCli;
 async fn main() -> anyhow::Result<()> {
     FedimintCli::new()?
         .with_default_modules()
-        .with_module(fedimint_dummy_client::DummyClientInit)
+        .with_module(nostr_client::NostrClientInit)
         .run()
         .await;
     Ok(())

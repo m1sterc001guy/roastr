@@ -1,9 +1,9 @@
 [package]
-name = "fedimintd-custom"
-version = "0.2.1"
-authors = ["The Fedimint Developers"]
+name = "fedimintd-nostr"
+version = "0.0.1"
+authors = ["m1sterc001guy"]
 edition = "2021"
-description = "fedimintd with custom module set"
+description = "fedimintd with a nostr module"
 
 [[bin]]
 name = "fedimintd"
@@ -13,5 +13,8 @@ path = "src/fedimintd.rs"
 anyhow = "1.0.66"
 fedimintd = { workspace = true }
 tokio = { version = "1.25.0", features = ["full", "tracing"] }
-fedimint-dummy-server = { path = "../fedimint-dummy-server" }
-fedimint-dummy-common = { path = "../fedimint-dummy-common" }
+nostr-server = { path = "../nostr-server" }
+nostr-common = { path = "../nostr-common" }
+rand = "0.8"
+schnorr_fun = { version = "0.9.1", features = ["serde", "bincode"] }
+sha2 = "0.10"

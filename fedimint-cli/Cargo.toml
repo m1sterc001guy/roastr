@@ -1,7 +1,7 @@
 [package]
-name = "fedimint-cli-custom"
-version = "0.2.1"
-authors = ["The Fedimint Developers"]
+name = "fedimint-cli-nostr"
+version = "0.0.1"
+authors = ["m1sterc001guy"]
 edition = "2021"
 description = "fedimint-cli with custom module set"
 
@@ -12,5 +12,5 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0.66"
 fedimint-cli = { workspace = true }
-fedimint-dummy-client = { path = "../fedimint-dummy-client" }
+nostr-client = { path = "../nostr-client" }
 tokio = { version = "1.25.0", features = ["full", "tracing"] }

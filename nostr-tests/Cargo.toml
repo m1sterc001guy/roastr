@@ -1,23 +1,23 @@
 [package]
-name = "fedimint-dummy-tests"
-version = "0.2.1"
-authors = ["The Fedimint Developers"]
+name = "nostr-tests"
+version = "0.0.1"
+authors = ["m1sterc001guy"]
 edition = "2021"
-description = "fedimint-dummy is a dummy example fedimint module."
+description = "A federated nostr client."
 license = "MIT"
 publish = false
 
 [[test]]
-name = "fedimint_dummy_tests"
+name = "nostr_tests"
 path = "tests/tests.rs"
 
 [dependencies]
 anyhow = "1.0.66"
 fedimint-client = { workspace = true }
 fedimint-core = { workspace = true }
-fedimint-dummy-client = { path = "../fedimint-dummy-client" }
-fedimint-dummy-common = { path = "../fedimint-dummy-common" }
-fedimint-dummy-server = { path = "../fedimint-dummy-server" }
+nostr-client = { path = "../nostr-client" }
+nostr-common = { path = "../nostr-common" }
+nostr-server = { path = "../nostr-server" }
 fedimint-logging = { workspace = true }
 fedimint-server = { workspace = true }
 fedimint-testing = { workspace = true }
