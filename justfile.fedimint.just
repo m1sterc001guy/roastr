@@ -14,14 +14,6 @@ check-ulimit:
 test-real: check-ulimit
   ./scripts/tests/rust-tests.sh
 
-# run all tests in parallel like CI would
-test-ci-all:
-  ./scripts/tests/test-ci-all.sh
-
-# show number of tests per package
-test-count:
-  ./scripts/tests/test-cov.sh
-
 # `cargo udeps` check
 udeps:
   nix build -L .#debug.workspaceCargoUdeps

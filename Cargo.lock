@@ -1508,6 +1508,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "fedimint-dummy-tests"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
+ "fedimint-client",
+ "fedimint-core",
+ "fedimint-dummy-client 0.2.1",
+ "fedimint-dummy-common 0.2.1",
+ "fedimint-dummy-server",
+ "fedimint-logging",
+ "fedimint-server",
+ "fedimint-testing",
+ "rand",
+ "secp256k1 0.24.3",
+ "threshold_crypto",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "fedimint-hbbft"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
