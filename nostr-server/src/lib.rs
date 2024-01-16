@@ -27,12 +27,9 @@ use nostr_common::{
     NostrCommonInit, NostrConsensusItem, NostrInput, NostrInputError, NostrModuleTypes,
     NostrOutput, NostrOutputError, NostrOutputOutcome, CONSENSUS_VERSION, KIND,
 };
-use nostr_sdk::secp256k1::schnorr;
 use rand::rngs::OsRng;
 use schnorr_fun::frost::{self, Frost};
-use schnorr_fun::fun::bincode::error::EncodeError;
 use schnorr_fun::fun::marker::{NonZero, Public, Secret, Zero};
-use schnorr_fun::fun::Scalar;
 use schnorr_fun::nonce::{GlobalRng, Synthetic};
 use schnorr_fun::Message;
 use sha2::digest::core_api::{CoreWrapper, CtVariableCoreWrapper};
@@ -115,11 +112,12 @@ impl ServerModuleInit for NostrInit {
     /// Generates configs for all peers in a trusted manner for testing
     fn trusted_dealer_gen(
         &self,
-        peers: &[PeerId],
+        _peers: &[PeerId],
         params: &ConfigGenModuleParams,
     ) -> BTreeMap<PeerId, ServerModuleConfig> {
-        let params = self.parse_params(params).unwrap();
+        let _params = self.parse_params(params).unwrap();
         // Generate a config for each peer
+        /*
         peers
             .iter()
             .map(|&peer| {
@@ -133,6 +131,8 @@ impl ServerModuleInit for NostrInit {
                 (peer, config.to_erased())
             })
             .collect()
+        */
+        todo!()
     }
 
     /// Generates configs for all peers in an untrusted manner
@@ -177,20 +177,56 @@ impl ServerModuleInit for NostrInit {
             self.frost
                 .create_shares_and_pop(&keygen, &my_secret_poly, pop_message);
 
-        /*
-        let shares_and_pop: BTreeMap<PeerId, FrostShare> = peers.exchange_with_peers::<FrostShare>(
-            "nostr_shares".to_string(),
-            FrostShare::new(
-                shares_i_generated.clone(),
-                pop,
-            ),
-            KIND,
-            self.decoder()).await?;
-            */
+        let shares_i_generated_converted = shares_i_generated
+            .into_iter()
+            .map(|(public, secret)| (PublicScalar(public), SecretScalar(secret)))
+            .collect::<BTreeMap<_, _>>();
+
+        let shares_and_pop: BTreeMap<PeerId, FrostShare> = peers
+            .exchange_with_peers::<FrostShare>(
+                "nostr_shares".to_string(),
+                (shares_i_generated_converted, Signature(pop)),
+                KIND,
+                self.decoder(),
+            )
+            .await?;
+
+        let my_index = peer_id_to_scalar(&peers.our_id);
+
+        let my_shares = shares_and_pop
+            .iter()
+            .map(|(peer, shares_from_peer)| {
+                let index = peer_id_to_scalar(peer);
+                (
+                    index,
+                    (
+                        shares_from_peer
+                            .0
+                            .get(&PublicScalar(my_index))
+                            .expect("Didnt find our share")
+                            .0
+                            .clone(),
+                        shares_from_peer.1 .0.clone(),
+                    ),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+
+        let (my_secret_share, frost_key) = self
+            .frost
+            .finish_keygen(keygen.clone(), my_index, my_shares, pop_message)
+            .expect("Finish keygen failed");
+
+        tracing::info!(
+            "MyIndex: {my_index} MySecretShare: {my_secret_share} FrostKey: {frost_key:?}"
+        );
 
         Ok(NostrConfig {
             local: NostrConfigLocal {},
-            private: NostrConfigPrivate,
+            private: NostrConfigPrivate {
+                my_secret_share,
+                my_peer_id: peers.our_id,
+            },
             consensus: NostrConfigConsensus { threshold },
         }
         .to_erased())
@@ -327,21 +363,90 @@ impl Decodable for Point {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct FrostShare {
-    share:
-        BTreeMap<schnorr_fun::fun::Scalar<Public, NonZero>, schnorr_fun::fun::Scalar<Secret, Zero>>,
-    sig: schnorr_fun::Signature,
+pub type FrostShare = (BTreeMap<PublicScalar, SecretScalar>, Signature);
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub struct PublicScalar(pub schnorr_fun::fun::Scalar<Public, NonZero>);
+
+impl Encodable for PublicScalar {
+    fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
+        let bytes = self.0.to_bytes();
+        writer.write(&bytes)?;
+        Ok(bytes.len())
+    }
 }
 
-impl FrostShare {
-    pub fn new(
-        share: BTreeMap<
-            schnorr_fun::fun::Scalar<Public, NonZero>,
-            schnorr_fun::fun::Scalar<Secret, Zero>,
-        >,
-        sig: schnorr_fun::Signature,
-    ) -> Self {
-        FrostShare { share, sig }
+impl Decodable for PublicScalar {
+    fn consensus_decode<R: std::io::Read>(
+        reader: &mut R,
+        _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
+    ) -> Result<Self, DecodeError> {
+        let mut bytes = [0; 32];
+        reader
+            .read_exact(&mut bytes)
+            .map_err(|_| DecodeError::from_str("Failed to decode Scalar"))?;
+        match schnorr_fun::fun::Scalar::<Secret, Zero>::from_bytes(bytes) {
+            Some(scalar) => Ok(PublicScalar(
+                scalar
+                    .public()
+                    .non_zero()
+                    .expect("Found PublicScalar that was Zero"),
+            )),
+            None => Err(DecodeError::from_str("Failed to decode Scalar")),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct SecretScalar(pub schnorr_fun::fun::Scalar<Secret, Zero>);
+
+impl Encodable for SecretScalar {
+    fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
+        let bytes = self.0.to_bytes();
+        writer.write(&bytes)?;
+        Ok(bytes.len())
+    }
+}
+
+impl Decodable for SecretScalar {
+    fn consensus_decode<R: std::io::Read>(
+        reader: &mut R,
+        _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
+    ) -> Result<Self, DecodeError> {
+        let mut bytes = [0; 32];
+        reader
+            .read_exact(&mut bytes)
+            .map_err(|_| DecodeError::from_str("Failed to decode Scalar"))?;
+        match schnorr_fun::fun::Scalar::<Secret, Zero>::from_bytes(bytes) {
+            Some(scalar) => Ok(SecretScalar(scalar)),
+            None => Err(DecodeError::from_str("Failed to decode Scalar")),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Signature(schnorr_fun::Signature);
+
+impl Encodable for Signature {
+    fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
+        let bytes = self.0.to_bytes();
+        writer.write(&bytes)?;
+        Ok(bytes.len())
+    }
+}
+
+impl Decodable for Signature {
+    fn consensus_decode<R: std::io::Read>(
+        reader: &mut R,
+        _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
+    ) -> Result<Self, DecodeError> {
+        let mut bytes = [0; 64];
+        reader
+            .read_exact(&mut bytes)
+            .map_err(|_| DecodeError::from_str("Failed to decode Signature"))?;
+        match schnorr_fun::Signature::from_bytes(bytes) {
+            Some(sig) => Ok(Signature(sig)),
+            None => Err(DecodeError::from_str("Failed to decode Signature")),
+        }
     }
 }
