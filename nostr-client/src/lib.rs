@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
 use fedimint_client::module::{ClientModule, IClientModule};
@@ -7,9 +9,7 @@ use fedimint_core::api::DynModuleApi;
 use fedimint_core::core::{Decoder, IntoDynInstance, ModuleInstanceId};
 use fedimint_core::db::DatabaseTransaction;
 use fedimint_core::encoding::{Decodable, Encodable};
-use fedimint_core::module::{
-    ApiVersion, ModuleCommon, ModuleInit, MultiApiVersion, TransactionItemAmount,
-};
+use fedimint_core::module::{ApiVersion, ModuleCommon, MultiApiVersion, TransactionItemAmount};
 use fedimint_core::{apply, async_trait_maybe_send, Amount};
 pub use nostr_common as common;
 use nostr_common::{NostrCommonInit, NostrModuleTypes};
@@ -69,7 +69,7 @@ impl ClientModule for NostrClientModule {
 pub struct NostrClientInit;
 
 #[apply(async_trait_maybe_send!)]
-impl ModuleInit for NostrClientInit {
+impl fedimint_core::module::ModuleInit for NostrClientInit {
     type Common = NostrCommonInit;
 
     async fn dump_database(
@@ -77,7 +77,7 @@ impl ModuleInit for NostrClientInit {
         _dbtx: &mut DatabaseTransaction<'_>,
         _prefix_names: Vec<String>,
     ) -> Box<dyn Iterator<Item = (String, Box<dyn erased_serde::Serialize + Send>)> + '_> {
-        todo!()
+        Box::new(BTreeMap::new().into_iter())
     }
 }
 

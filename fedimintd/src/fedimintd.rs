@@ -4,7 +4,7 @@ use sha2::Sha256;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    Fedimintd::new()?
+    Fedimintd::new("0.1")?
         .with_default_modules()
         .with_module(nostr_server::NostrInit {
             frost: frost::new_with_synthetic_nonces::<Sha256, rand::rngs::OsRng>(),

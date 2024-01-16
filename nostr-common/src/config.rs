@@ -17,13 +17,20 @@ pub struct NostrGenParams {
 pub struct NostrGenParamsLocal;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NostrGenParamsConsensus {}
+pub struct NostrGenParamsConsensus {
+    pub threshold: u32,
+}
 
 impl Default for NostrGenParams {
     fn default() -> Self {
         Self {
             local: NostrGenParamsLocal {},
-            consensus: NostrGenParamsConsensus {},
+            consensus: NostrGenParamsConsensus {
+                threshold: std::env::var("NOSTR_THRESHOLD")
+                    .unwrap_or("3".to_string())
+                    .parse::<u32>()
+                    .expect("NOSTR_THRESHOLD was not an integer"),
+            },
         }
     }
 }
@@ -48,7 +55,9 @@ impl fmt::Display for NostrClientConfig {
 pub struct NostrConfigLocal {}
 
 #[derive(Clone, Debug, Serialize, Deserialize, Decodable, Encodable)]
-pub struct NostrConfigConsensus {}
+pub struct NostrConfigConsensus {
+    pub threshold: u32,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NostrConfigPrivate;
