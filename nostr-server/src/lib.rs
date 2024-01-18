@@ -222,12 +222,15 @@ impl ServerModuleInit for NostrInit {
         );
 
         Ok(NostrConfig {
-            local: NostrConfigLocal {},
+            local: NostrConfigLocal,
             private: NostrConfigPrivate {
-                my_secret_share,
                 my_peer_id: peers.our_id,
+                my_secret_share,
             },
-            consensus: NostrConfigConsensus { threshold },
+            consensus: NostrConfigConsensus {
+                threshold,
+                frost_key,
+            },
         }
         .to_erased())
     }
@@ -321,7 +324,6 @@ impl ServerModule for Nostr {
         _audit: &mut Audit,
         _module_instance_id: ModuleInstanceId,
     ) {
-        todo!()
     }
 
     fn api_endpoints(&self) -> Vec<ApiEndpoint<Self>> {

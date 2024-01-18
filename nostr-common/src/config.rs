@@ -5,7 +5,6 @@ use fedimint_core::core::ModuleKind;
 use fedimint_core::encoding::{Decodable, DecodeError, Encodable};
 use fedimint_core::{plugin_types_trait_impl_config, PeerId};
 use schnorr_fun::frost::FrostKey;
-use schnorr_fun::fun::bincode;
 use schnorr_fun::fun::marker::{Normal, Secret};
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +27,7 @@ pub struct NostrGenParamsConsensus {
 impl Default for NostrGenParams {
     fn default() -> Self {
         Self {
-            local: NostrGenParamsLocal {},
+            local: NostrGenParamsLocal,
             consensus: NostrGenParamsConsensus {
                 threshold: std::env::var("NOSTR_THRESHOLD")
                     .unwrap_or("3".to_string())
@@ -56,19 +55,18 @@ impl fmt::Display for NostrClientConfig {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Decodable, Encodable)]
-pub struct NostrConfigLocal {}
+pub struct NostrConfigLocal;
 
-#[derive(Clone, Debug, Serialize, Deserialize, Decodable, Encodable)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NostrConfigConsensus {
     pub threshold: u32,
-    //pub frost_key: FrostKey<Normal>,
+    pub frost_key: FrostKey<Normal>,
 }
 
-/*
 impl Encodable for NostrConfigConsensus {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
         let threshold_bytes = self.threshold.to_le_bytes();
-        let frost_key_bytes = bincode::serialize(&self.frost_key).map_err(|_| {
+        let frost_key_bytes = bincode2::serialize(&self.frost_key).map_err(|_| {
             std::io::Error::new(ErrorKind::Other, "Error serializing FrostKey".to_string())
         })?;
         writer.write(threshold_bytes.as_slice())?;
@@ -82,26 +80,23 @@ impl Decodable for NostrConfigConsensus {
         r: &mut R,
         _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
     ) -> Result<Self, fedimint_core::encoding::DecodeError> {
-        let mut threshold_bytes = [0; 4]; // Assuming u32 threshold
+        let mut threshold_bytes = [0; 4];
         r.read_exact(&mut threshold_bytes)
             .map_err(|_| DecodeError::from_str("Failed to read threshold bytes"))?;
         let threshold = u32::from_le_bytes(threshold_bytes);
 
-        // Now, you need to read and deserialize the FrostKey
         let mut frost_key_bytes = Vec::new();
         r.read_to_end(&mut frost_key_bytes)
             .map_err(|_| DecodeError::from_str("Failed to read FrostKey bytes"))?;
-        let frost_key: FrostKey<Normal> = bincode::deserialize(&frost_key_bytes)
-            .map_err(|_| DecodeError::from_str("Error deserializing FrostKey"))?;
+        let frost_key = bincode2::deserialize(&frost_key_bytes)
+            .map_err(|_| DecodeError::from_str("Failed to deserialize FrostKey"))?;
 
-        // Create and return the NostrmintConfigConsensus
         Ok(NostrConfigConsensus {
             threshold,
             frost_key,
         })
     }
 }
-*/
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NostrConfigPrivate {
