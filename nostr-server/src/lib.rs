@@ -10,9 +10,9 @@ use fedimint_core::core::ModuleInstanceId;
 use fedimint_core::db::{DatabaseTransaction, DatabaseVersion, IDatabaseTransactionOpsCoreTyped};
 use fedimint_core::module::audit::Audit;
 use fedimint_core::module::{
-    ApiEndpoint, CoreConsensusVersion, IDynCommonModuleInit, InputMeta, ModuleConsensusVersion,
-    ModuleInit, PeerHandle, ServerModuleInit, ServerModuleInitArgs, SupportedModuleApiVersions,
-    TransactionItemAmount,
+    api_endpoint, ApiEndpoint, ApiVersion, CoreConsensusVersion, IDynCommonModuleInit, InputMeta,
+    ModuleConsensusVersion, ModuleInit, PeerHandle, ServerModuleInit, ServerModuleInitArgs,
+    SupportedModuleApiVersions, TransactionItemAmount,
 };
 use fedimint_core::server::DynServerModule;
 use fedimint_core::{Amount, OutPoint, PeerId, ServerModule};
@@ -20,13 +20,13 @@ use fedimint_server::config::distributedgen::PeerHandleOps;
 use futures::StreamExt;
 use nostr_common::config::{
     NostrClientConfig, NostrConfig, NostrConfigConsensus, NostrConfigLocal, NostrConfigPrivate,
-    NostrGenParams,
+    NostrGenParams, NostrNPub,
 };
 use nostr_common::{
     peer_id_to_scalar, NonceKeyPair, NostrCommonInit, NostrConsensusItem, NostrInput,
     NostrInputError, NostrModuleTypes, NostrOutputError, NostrSignatureShareOutcome,
-    NostrSignatureShareRequest, Point, PublicScalar, SecretScalar, Signature, CONSENSUS_VERSION,
-    KIND,
+    NostrSignatureShareRequest, Point, PublicScalar, SecretScalar, Signature, UnsignedEvent,
+    CONSENSUS_VERSION, KIND,
 };
 use rand::rngs::OsRng;
 use schnorr_fun::frost::{self, Frost};
@@ -236,8 +236,12 @@ impl ServerModuleInit for NostrInit {
         &self,
         config: &ServerModuleConsensusConfig,
     ) -> anyhow::Result<NostrClientConfig> {
-        let _config = NostrConfigConsensus::from_erased(config)?;
-        Ok(NostrClientConfig {})
+        let config = NostrConfigConsensus::from_erased(config)?;
+        let public_key = config.frost_key.public_key().to_xonly_bytes();
+        let xonly = nostr_sdk::key::XOnlyPublicKey::from_slice(&public_key)?;
+        Ok(NostrClientConfig {
+            npub: NostrNPub { npub: xonly },
+        })
     }
 
     fn validate_config(
@@ -337,6 +341,7 @@ impl ServerModule for Nostr {
         output: &'a NostrSignatureShareRequest,
         out_point: OutPoint,
     ) -> Result<TransactionItemAmount, NostrOutputError> {
+        /*
         // Verify that our peer id is include in the set of signers
         if output.signing_peers.contains(&self.cfg.private.my_peer_id) {
             let frost_key = self.cfg.consensus.frost_key.clone();
@@ -401,6 +406,7 @@ impl ServerModule for Nostr {
             )
             .await;
         }
+        */
 
         Ok(TransactionItemAmount {
             amount: Amount::ZERO,
@@ -425,7 +431,17 @@ impl ServerModule for Nostr {
     }
 
     fn api_endpoints(&self) -> Vec<ApiEndpoint<Self>> {
-        Vec::new()
+        vec![api_endpoint! {
+            "sign_event",
+            ApiVersion::new(0, 0),
+            async |_module: &Nostr, context, unsigned_event: UnsignedEvent| -> () {
+                //check_auth(context)?;
+                tracing::info!("Received sign_message request. Message: {unsigned_event:?}");
+                //let mut dbtx = context.dbtx();
+                //dbtx.insert_new_entry(&MessageNonceRequest, &unsigned_event).await;
+                Ok(())
+            }
+        }]
     }
 }
 

@@ -18,9 +18,11 @@ fedimint-client = { workspace = true }
 fedimint-core ={ workspace = true }
 futures = "0.3"
 erased-serde = "0.3"
+nostr-sdk = "0.24.0"
 rand = "0.8.5"
 secp256k1 = "0.24.2"
 serde = {version = "1.0.149", features = [ "derive" ] }
+serde_json = { version = "1.0.91", features = ["preserve_order"] }
 strum = "0.24"
 strum_macros = "0.24"
 tracing = "0.1.37"

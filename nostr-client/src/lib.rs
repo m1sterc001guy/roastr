@@ -1,24 +1,32 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
+use std::ffi;
 
+use anyhow::bail;
+use common::config::NostrClientConfig;
+use common::UnsignedEvent;
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
 use fedimint_client::module::{ClientModule, IClientModule};
 use fedimint_client::sm::{Context, DynState, State};
 use fedimint_client::DynGlobalClientContext;
-use fedimint_core::api::DynModuleApi;
+use fedimint_core::api::{DynModuleApi, FederationApiExt};
 use fedimint_core::core::{Decoder, IntoDynInstance, ModuleInstanceId};
 use fedimint_core::db::{DatabaseTransaction, DatabaseVersion};
 use fedimint_core::encoding::{Decodable, Encodable};
-use fedimint_core::module::{ApiVersion, ModuleCommon, MultiApiVersion, TransactionItemAmount};
+use fedimint_core::module::{
+    ApiRequestErased, ApiVersion, ModuleCommon, MultiApiVersion, TransactionItemAmount,
+};
 use fedimint_core::{apply, async_trait_maybe_send, Amount};
 pub use nostr_common as common;
 use nostr_common::{NostrCommonInit, NostrModuleTypes};
+use serde_json::json;
 
 pub mod api;
 mod db;
 
 #[derive(Debug)]
 pub struct NostrClientModule {
+    pub cfg: NostrClientConfig,
     pub module_api: DynModuleApi,
 }
 
@@ -63,6 +71,47 @@ impl ClientModule for NostrClientModule {
             fee: Amount::ZERO,
         })
     }
+
+    async fn handle_cli_command(
+        &self,
+        args: &[ffi::OsString],
+    ) -> anyhow::Result<serde_json::Value> {
+        const SUPPORTED_COMMANDS: &str = "sign-event";
+
+        if args.is_empty() {
+            bail!("Expected to be called with at least 1 argument: <command> ...");
+        }
+
+        let command = args[0].to_string_lossy();
+
+        match command.as_ref() {
+            "sign-event" => {
+                let pubkey = self.cfg.npub.npub;
+                let unsigned_event = UnsignedEvent(
+                    nostr_sdk::EventBuilder::new_text_note("FROST".to_string(), &[])
+                        .to_unsigned_event(pubkey),
+                );
+                self.module_api
+                    .request_single_peer(
+                        None, // no timeout
+                        "sign_event".to_string(),
+                        ApiRequestErased::new(unsigned_event.clone()),
+                        0.into(),
+                    )
+                    .await?;
+                let note_id = format!("{}", unsigned_event.0.id);
+                Ok(json!(note_id))
+            }
+            "help" => {
+                let mut map = HashMap::new();
+                map.insert("supported_commands", SUPPORTED_COMMANDS);
+                Ok(serde_json::to_value(map)?)
+            }
+            command => {
+                bail!("Unknown command: {command}, supported commands: {SUPPORTED_COMMANDS}");
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -93,6 +142,7 @@ impl ClientModuleInit for NostrClientInit {
 
     async fn init(&self, args: &ClientModuleInitArgs<Self>) -> anyhow::Result<Self::Module> {
         Ok(NostrClientModule {
+            cfg: args.cfg().clone(),
             module_api: args.module_api().clone(),
         })
     }

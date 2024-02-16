@@ -4,6 +4,7 @@ use std::io::ErrorKind;
 use fedimint_core::core::ModuleKind;
 use fedimint_core::encoding::{Decodable, DecodeError, Encodable};
 use fedimint_core::{plugin_types_trait_impl_config, PeerId};
+use nostr_sdk::{FromBech32, ToBech32};
 use schnorr_fun::frost::FrostKey;
 use schnorr_fun::fun::marker::{Normal, Secret};
 use serde::{Deserialize, Serialize};
@@ -51,7 +52,40 @@ pub struct NostrConfig {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Encodable, Decodable, Hash)]
-pub struct NostrClientConfig {}
+pub struct NostrClientConfig {
+    pub npub: NostrNPub,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Hash)]
+pub struct NostrNPub {
+    pub npub: nostr_sdk::key::XOnlyPublicKey,
+}
+
+impl Encodable for NostrNPub {
+    fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
+        let bech32 = self
+            .npub
+            .to_bech32()
+            .map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e))?;
+        let bech32_bytes = bech32.as_bytes();
+        writer.write(bech32_bytes)?;
+        Ok(bech32_bytes.len())
+    }
+}
+
+impl Decodable for NostrNPub {
+    fn consensus_decode<R: std::io::Read>(
+        r: &mut R,
+        _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
+    ) -> Result<Self, DecodeError> {
+        let mut str = String::new();
+        r.read_to_string(&mut str)
+            .map_err(|e| DecodeError::from_err(e))?;
+        let bech32 = nostr_sdk::key::XOnlyPublicKey::from_bech32(str)
+            .map_err(|e| DecodeError::from_err(e))?;
+        Ok(NostrNPub { npub: bech32 })
+    }
+}
 
 impl fmt::Display for NostrClientConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -79,7 +113,7 @@ impl Encodable for NostrConfigConsensus {
         writer.write(threshold_bytes.as_slice())?;
         writer.write(num_nonces_bytes.as_slice())?;
         writer.write(frost_key_bytes.as_slice())?;
-        Ok(threshold_bytes.len() + frost_key_bytes.len())
+        Ok(threshold_bytes.len() + num_nonces_bytes.len() + frost_key_bytes.len())
     }
 }
 
