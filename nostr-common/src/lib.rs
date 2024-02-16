@@ -26,21 +26,17 @@ pub const CONSENSUS_VERSION: ModuleConsensusVersion = ModuleConsensusVersion::ne
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Encodable, Decodable)]
 pub enum NostrConsensusItem {
     Nonce(NonceKeyPair),
+    SigningSession((UnsignedEvent, Vec<PeerId>)),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize, Serialize, Encodable, Decodable)]
 pub struct NostrInput;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize, Serialize, Encodable, Decodable)]
-pub struct NostrSignatureShareRequest {
-    pub signing_peers: Vec<PeerId>,
-    pub unsigned_event: UnsignedEvent,
-}
+pub struct NostrOutput;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize, Serialize, Encodable, Decodable)]
-pub struct NostrSignatureShareOutcome {
-    pub signature_share: PublicScalar,
-}
+pub struct NostrOutcome;
 
 /// Errors that might be returned by the server
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Error, Encodable, Decodable)]
@@ -59,13 +55,13 @@ impl fmt::Display for NostrInputError {
 /// Errors that might be returned by the server
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Error, Encodable, Decodable)]
 pub enum NostrOutputError {
-    NotEnoughNonces(String),
+    InvalidOperation(String),
 }
 
 impl fmt::Display for NostrOutputError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NostrOutputError::NotEnoughNonces(msg) => write!(f, "Not enough nonces: {msg}"),
+            NostrOutputError::InvalidOperation(msg) => write!(f, "InvalidOperation: {msg}"),
         }
     }
 }
@@ -78,8 +74,8 @@ plugin_types_trait_impl_common!(
     NostrModuleTypes,
     NostrClientConfig,
     NostrInput,
-    NostrSignatureShareRequest,
-    NostrSignatureShareOutcome,
+    NostrOutput,
+    NostrOutcome,
     NostrConsensusItem,
     NostrInputError,
     NostrOutputError
@@ -105,13 +101,13 @@ impl fmt::Display for NostrInput {
     }
 }
 
-impl fmt::Display for NostrSignatureShareRequest {
+impl fmt::Display for NostrOutput {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "NostrOutput")
     }
 }
 
-impl fmt::Display for NostrSignatureShareOutcome {
+impl fmt::Display for NostrOutcome {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "NostrOutputOutcome")
     }

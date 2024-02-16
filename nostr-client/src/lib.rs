@@ -1,9 +1,11 @@
 use std::collections::{BTreeMap, HashMap};
 use std::ffi;
+use std::str::FromStr;
+use std::time::Duration;
 
 use anyhow::bail;
 use common::config::NostrClientConfig;
-use common::UnsignedEvent;
+use common::{PublicScalar, UnsignedEvent};
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
 use fedimint_client::module::{ClientModule, IClientModule};
@@ -16,9 +18,11 @@ use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::module::{
     ApiRequestErased, ApiVersion, ModuleCommon, MultiApiVersion, TransactionItemAmount,
 };
-use fedimint_core::{apply, async_trait_maybe_send, Amount};
+use fedimint_core::query::{AllOrDeadline, UnionResponses};
+use fedimint_core::{apply, async_trait_maybe_send, Amount, NumPeers, PeerId};
 pub use nostr_common as common;
 use nostr_common::{NostrCommonInit, NostrModuleTypes};
+use nostr_sdk::EventId;
 use serde_json::json;
 
 pub mod api;
@@ -76,7 +80,7 @@ impl ClientModule for NostrClientModule {
         &self,
         args: &[ffi::OsString],
     ) -> anyhow::Result<serde_json::Value> {
-        const SUPPORTED_COMMANDS: &str = "sign-event";
+        const SUPPORTED_COMMANDS: &str = "create-note, sign-note";
 
         if args.is_empty() {
             bail!("Expected to be called with at least 1 argument: <command> ...");
@@ -85,22 +89,71 @@ impl ClientModule for NostrClientModule {
         let command = args[0].to_string_lossy();
 
         match command.as_ref() {
-            "sign-event" => {
+            "create-note" => {
+                if args.len() != 3 {
+                    bail!("`create-note` command expects 2 arguments: <text> <peer_id>")
+                }
+
+                let text: String = args[1].to_string_lossy().to_string();
+                let peer_id: PeerId = args[2].to_string_lossy().parse::<PeerId>()?;
+
                 let pubkey = self.cfg.npub.npub;
                 let unsigned_event = UnsignedEvent(
-                    nostr_sdk::EventBuilder::new_text_note("FROST".to_string(), &[])
-                        .to_unsigned_event(pubkey),
+                    nostr_sdk::EventBuilder::new_text_note(text, &[]).to_unsigned_event(pubkey),
                 );
                 self.module_api
                     .request_single_peer(
                         None, // no timeout
-                        "sign_event".to_string(),
+                        "create_note".to_string(),
                         ApiRequestErased::new(unsigned_event.clone()),
-                        0.into(),
+                        peer_id,
                     )
                     .await?;
                 let note_id = format!("{}", unsigned_event.0.id);
                 Ok(json!(note_id))
+            }
+            "sign-note" => {
+                if args.len() != 3 {
+                    bail!("`sign-note` command expects 2 arguments: <note-id> <peer_id>")
+                }
+
+                let event_id: String = args[1].to_string_lossy().to_string();
+                let event_id = EventId::from_str(event_id.as_str())?;
+                let peer_id: PeerId = args[2].to_string_lossy().parse::<PeerId>()?;
+
+                self.module_api
+                    .request_single_peer(
+                        None,
+                        "sign_note".to_string(),
+                        ApiRequestErased::new(event_id),
+                        peer_id,
+                    )
+                    .await?;
+
+                Ok(json!(event_id))
+            }
+            "get-sig-shares" => {
+                if args.len() != 2 {
+                    bail!("`sign-note` command expects 1 argument: <note-id>")
+                }
+
+                let event_id: String = args[1].to_string_lossy().to_string();
+                let event_id = EventId::from_str(event_id.as_str())?;
+
+                let total_peers = self.module_api.all_peers().total();
+                let sig_shares: BTreeMap<PeerId, BTreeMap<String, PublicScalar>> = self
+                    .module_api
+                    .request_with_strategy(
+                        AllOrDeadline::new(
+                            total_peers,
+                            fedimint_core::time::now() + Duration::from_secs(60),
+                        ),
+                        "get_sig_shares".to_string(),
+                        ApiRequestErased::new(event_id),
+                    )
+                    .await?;
+
+                Ok(json!(sig_shares))
             }
             "help" => {
                 let mut map = HashMap::new();
