@@ -1,15 +1,13 @@
 use std::collections::BTreeMap;
-use std::num::NonZeroU32;
 
-use anyhow::bail;
 use async_trait::async_trait;
+use db::{NonceKey, NonceKeyPrefix, SignatureShareKey};
 use fedimint_core::config::{
     ConfigGenModuleParams, DkgResult, ServerModuleConfig, ServerModuleConsensusConfig,
     TypedServerModuleConfig, TypedServerModuleConsensusConfig,
 };
 use fedimint_core::core::ModuleInstanceId;
-use fedimint_core::db::{DatabaseTransaction, DatabaseVersion, MigrationMap};
-use fedimint_core::encoding::{Decodable, DecodeError, Encodable};
+use fedimint_core::db::{DatabaseTransaction, DatabaseVersion, IDatabaseTransactionOpsCoreTyped};
 use fedimint_core::module::audit::Audit;
 use fedimint_core::module::{
     ApiEndpoint, CoreConsensusVersion, IDynCommonModuleInit, InputMeta, ModuleConsensusVersion,
@@ -17,19 +15,21 @@ use fedimint_core::module::{
     TransactionItemAmount,
 };
 use fedimint_core::server::DynServerModule;
-use fedimint_core::{OutPoint, PeerId, ServerModule};
+use fedimint_core::{Amount, OutPoint, PeerId, ServerModule};
 use fedimint_server::config::distributedgen::PeerHandleOps;
+use futures::StreamExt;
 use nostr_common::config::{
     NostrClientConfig, NostrConfig, NostrConfigConsensus, NostrConfigLocal, NostrConfigPrivate,
     NostrGenParams,
 };
 use nostr_common::{
-    NostrCommonInit, NostrConsensusItem, NostrInput, NostrInputError, NostrModuleTypes,
-    NostrOutput, NostrOutputError, NostrOutputOutcome, CONSENSUS_VERSION, KIND,
+    peer_id_to_scalar, NonceKeyPair, NostrCommonInit, NostrConsensusItem, NostrInput,
+    NostrInputError, NostrModuleTypes, NostrOutputError, NostrSignatureShareOutcome,
+    NostrSignatureShareRequest, Point, PublicScalar, SecretScalar, Signature, CONSENSUS_VERSION,
+    KIND,
 };
 use rand::rngs::OsRng;
 use schnorr_fun::frost::{self, Frost};
-use schnorr_fun::fun::marker::{NonZero, Public, Secret, Zero};
 use schnorr_fun::nonce::{GlobalRng, Synthetic};
 use schnorr_fun::Message;
 use sha2::digest::core_api::{CoreWrapper, CtVariableCoreWrapper};
@@ -67,6 +67,7 @@ pub struct NostrInit {
 #[async_trait]
 impl ModuleInit for NostrInit {
     type Common = NostrCommonInit;
+    const DATABASE_VERSION: DatabaseVersion = DatabaseVersion(1);
 
     /// Dumps all database items for debugging
     async fn dump_database(
@@ -88,7 +89,6 @@ impl std::fmt::Debug for NostrInit {
 #[async_trait]
 impl ServerModuleInit for NostrInit {
     type Params = NostrGenParams;
-    const DATABASE_VERSION: DatabaseVersion = DatabaseVersion(1);
 
     /// Returns the version of this module
     fn versions(&self, _core: CoreConsensusVersion) -> &[ModuleConsensusVersion] {
@@ -102,11 +102,6 @@ impl ServerModuleInit for NostrInit {
     /// Initialize the module
     async fn init(&self, args: &ServerModuleInitArgs<Self>) -> anyhow::Result<DynServerModule> {
         Ok(Nostr::new(args.cfg().to_typed()?, self.frost.clone()).into())
-    }
-
-    /// DB migrations to move from old to newer versions
-    fn get_database_migrations(&self) -> MigrationMap {
-        MigrationMap::new()
     }
 
     /// Generates configs for all peers in a trusted manner for testing
@@ -230,6 +225,7 @@ impl ServerModuleInit for NostrInit {
             consensus: NostrConfigConsensus {
                 threshold,
                 frost_key,
+                num_nonces: params.consensus.num_nonces,
             },
         }
         .to_erased())
@@ -253,14 +249,6 @@ impl ServerModuleInit for NostrInit {
     }
 }
 
-fn peer_id_to_scalar(peer_id: &PeerId) -> schnorr_fun::fun::Scalar<Public> {
-    let id = (peer_id.to_usize() + 1) as u32;
-    schnorr_fun::fun::Scalar::from_non_zero_u32(
-        NonZeroU32::new(id).expect("NonZeroU32 returned None"),
-    )
-    .public()
-}
-
 pub struct Nostr {
     cfg: NostrConfig,
     frost: NostrFrost,
@@ -279,18 +267,58 @@ impl ServerModule for Nostr {
 
     async fn consensus_proposal(
         &self,
-        _dbtx: &mut DatabaseTransaction<'_>,
+        dbtx: &mut DatabaseTransaction<'_>,
     ) -> Vec<NostrConsensusItem> {
-        Vec::new()
+        let num_nonces = self.cfg.consensus.num_nonces;
+
+        let mut consensus_items = Vec::new();
+
+        // Query the database to see if we have enough nonces
+        let my_peer_id = self.cfg.private.my_peer_id;
+        let nonces = dbtx
+            .find_by_prefix(&NonceKeyPrefix {
+                peer_id: my_peer_id,
+            })
+            .await
+            .collect::<Vec<_>>()
+            .await;
+        let num_new_nonces = num_nonces as i32 - nonces.len() as i32;
+        for _ in 0..num_new_nonces {
+            let nonce = NonceKeyPair(schnorr_fun::musig::NonceKeyPair::random(
+                &mut rand::rngs::OsRng,
+            ));
+            consensus_items.push(NostrConsensusItem::Nonce(nonce));
+        }
+
+        consensus_items
     }
 
     async fn process_consensus_item<'a, 'b>(
         &'a self,
-        _dbtx: &mut DatabaseTransaction<'b>,
-        _consensus_item: NostrConsensusItem,
-        _peer_id: PeerId,
+        dbtx: &mut DatabaseTransaction<'b>,
+        consensus_item: NostrConsensusItem,
+        peer_id: PeerId,
     ) -> anyhow::Result<()> {
-        bail!("The nostr module does not use consensus items");
+        match consensus_item {
+            NostrConsensusItem::Nonce(nonce) => {
+                // Check if we already have enough nonces for this peer
+                let nonces = dbtx
+                    .find_by_prefix(&NonceKeyPrefix { peer_id })
+                    .await
+                    .collect::<Vec<_>>()
+                    .await;
+
+                let num_nonces = self.cfg.consensus.num_nonces;
+                if nonces.len() < num_nonces as usize {
+                    tracing::info!(
+                        "Processing Nonce consensus item. PeerId: {peer_id} Nonce: {nonce:?}"
+                    );
+                    dbtx.insert_new_entry(&NonceKey { peer_id, nonce }, &())
+                        .await;
+                }
+            }
+        }
+        Ok(())
     }
 
     async fn process_input<'a, 'b, 'c>(
@@ -298,24 +326,94 @@ impl ServerModule for Nostr {
         _dbtx: &mut DatabaseTransaction<'c>,
         _input: &'b NostrInput,
     ) -> Result<InputMeta, NostrInputError> {
-        todo!()
+        Err(NostrInputError::InvalidOperation(
+            "Nostr module does not process inputs".to_string(),
+        ))
     }
 
     async fn process_output<'a, 'b>(
         &'a self,
-        _dbtx: &mut DatabaseTransaction<'b>,
-        _output: &'a NostrOutput,
-        _out_point: OutPoint,
+        dbtx: &mut DatabaseTransaction<'b>,
+        output: &'a NostrSignatureShareRequest,
+        out_point: OutPoint,
     ) -> Result<TransactionItemAmount, NostrOutputError> {
-        todo!()
+        // Verify that our peer id is include in the set of signers
+        if output.signing_peers.contains(&self.cfg.private.my_peer_id) {
+            let frost_key = self.cfg.consensus.frost_key.clone();
+            let xonly_frost_key = frost_key.into_xonly_key();
+            let message_raw = Message::raw(output.unsigned_event.0.id.as_bytes());
+
+            let mut nonces = BTreeMap::new();
+            for peer_id in &output.signing_peers {
+                // Always use the first available nonce for the peer
+                let (nonce_key, _) = match dbtx
+                    .find_by_prefix(&NonceKeyPrefix { peer_id: *peer_id })
+                    .await
+                    .next()
+                    .await
+                {
+                    Some(nonce) => nonce,
+                    None => {
+                        return Err(NostrOutputError::NotEnoughNonces(
+                            "Not enough nonces for peer: {peer_id}".to_string(),
+                        ))
+                    }
+                };
+
+                let scalar_id = peer_id_to_scalar(&nonce_key.peer_id);
+                nonces.insert(scalar_id, nonce_key.nonce.0.clone());
+
+                // remove the nonce from the database
+                dbtx.remove_entry(&nonce_key).await;
+            }
+
+            let session_nonces = nonces
+                .clone()
+                .into_iter()
+                .map(|(key, nonce_pair)| (key, nonce_pair.public()))
+                .collect::<BTreeMap<_, _>>();
+            let session =
+                self.frost
+                    .start_sign_session(&xonly_frost_key, session_nonces, message_raw);
+            let my_secret_share = self.cfg.private.my_secret_share.clone();
+            let my_index = peer_id_to_scalar(&self.cfg.private.my_peer_id);
+            let my_nonce = nonces
+                .get(&my_index)
+                .expect("We did not contribute a nonce")
+                .clone();
+            let my_sig_share = self.frost.sign(
+                &xonly_frost_key,
+                &session,
+                my_index,
+                &my_secret_share,
+                my_nonce,
+            );
+
+            dbtx.insert_new_entry(
+                &SignatureShareKey { out_point },
+                &NostrSignatureShareOutcome {
+                    signature_share: PublicScalar(
+                        my_sig_share
+                            .non_zero()
+                            .expect("My signature share was zero"),
+                    ),
+                },
+            )
+            .await;
+        }
+
+        Ok(TransactionItemAmount {
+            amount: Amount::ZERO,
+            fee: Amount::ZERO,
+        })
     }
 
     async fn output_status(
         &self,
         _dbtx: &mut DatabaseTransaction<'_>,
         _out_point: OutPoint,
-    ) -> Option<NostrOutputOutcome> {
-        todo!()
+    ) -> Option<NostrSignatureShareOutcome> {
+        None
     }
 
     async fn audit(
@@ -338,117 +436,4 @@ impl Nostr {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Point(pub schnorr_fun::fun::Point);
-
-impl Encodable for Point {
-    fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
-        let bytes = self.0.to_bytes();
-        writer.write(&bytes)?;
-        Ok(bytes.len())
-    }
-}
-
-impl Decodable for Point {
-    fn consensus_decode<R: std::io::Read>(
-        reader: &mut R,
-        _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
-    ) -> Result<Self, fedimint_core::encoding::DecodeError> {
-        let mut bytes = [0; 33];
-        reader
-            .read_exact(&mut bytes)
-            .map_err(|_| DecodeError::from_str("Failed to decode Point"))?;
-        match schnorr_fun::fun::Point::from_bytes(bytes) {
-            Some(p) => Ok(Point(p)),
-            None => Err(DecodeError::from_str("Failed to decode Point")),
-        }
-    }
-}
-
 pub type FrostShare = (BTreeMap<PublicScalar, SecretScalar>, Signature);
-
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub struct PublicScalar(pub schnorr_fun::fun::Scalar<Public, NonZero>);
-
-impl Encodable for PublicScalar {
-    fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
-        let bytes = self.0.to_bytes();
-        writer.write(&bytes)?;
-        Ok(bytes.len())
-    }
-}
-
-impl Decodable for PublicScalar {
-    fn consensus_decode<R: std::io::Read>(
-        reader: &mut R,
-        _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
-    ) -> Result<Self, DecodeError> {
-        let mut bytes = [0; 32];
-        reader
-            .read_exact(&mut bytes)
-            .map_err(|_| DecodeError::from_str("Failed to decode Scalar"))?;
-        match schnorr_fun::fun::Scalar::<Secret, Zero>::from_bytes(bytes) {
-            Some(scalar) => Ok(PublicScalar(
-                scalar
-                    .public()
-                    .non_zero()
-                    .expect("Found PublicScalar that was Zero"),
-            )),
-            None => Err(DecodeError::from_str("Failed to decode Scalar")),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct SecretScalar(pub schnorr_fun::fun::Scalar<Secret, Zero>);
-
-impl Encodable for SecretScalar {
-    fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
-        let bytes = self.0.to_bytes();
-        writer.write(&bytes)?;
-        Ok(bytes.len())
-    }
-}
-
-impl Decodable for SecretScalar {
-    fn consensus_decode<R: std::io::Read>(
-        reader: &mut R,
-        _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
-    ) -> Result<Self, DecodeError> {
-        let mut bytes = [0; 32];
-        reader
-            .read_exact(&mut bytes)
-            .map_err(|_| DecodeError::from_str("Failed to decode Scalar"))?;
-        match schnorr_fun::fun::Scalar::<Secret, Zero>::from_bytes(bytes) {
-            Some(scalar) => Ok(SecretScalar(scalar)),
-            None => Err(DecodeError::from_str("Failed to decode Scalar")),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Signature(schnorr_fun::Signature);
-
-impl Encodable for Signature {
-    fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
-        let bytes = self.0.to_bytes();
-        writer.write(&bytes)?;
-        Ok(bytes.len())
-    }
-}
-
-impl Decodable for Signature {
-    fn consensus_decode<R: std::io::Read>(
-        reader: &mut R,
-        _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
-    ) -> Result<Self, DecodeError> {
-        let mut bytes = [0; 64];
-        reader
-            .read_exact(&mut bytes)
-            .map_err(|_| DecodeError::from_str("Failed to decode Signature"))?;
-        match schnorr_fun::Signature::from_bytes(bytes) {
-            Some(sig) => Ok(Signature(sig)),
-            None => Err(DecodeError::from_str("Failed to decode Signature")),
-        }
-    }
-}

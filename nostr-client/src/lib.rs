@@ -7,7 +7,7 @@ use fedimint_client::sm::{Context, DynState, State};
 use fedimint_client::DynGlobalClientContext;
 use fedimint_core::api::DynModuleApi;
 use fedimint_core::core::{Decoder, IntoDynInstance, ModuleInstanceId};
-use fedimint_core::db::DatabaseTransaction;
+use fedimint_core::db::{DatabaseTransaction, DatabaseVersion};
 use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::module::{ApiVersion, ModuleCommon, MultiApiVersion, TransactionItemAmount};
 use fedimint_core::{apply, async_trait_maybe_send, Amount};
@@ -71,6 +71,7 @@ pub struct NostrClientInit;
 #[apply(async_trait_maybe_send!)]
 impl fedimint_core::module::ModuleInit for NostrClientInit {
     type Common = NostrCommonInit;
+    const DATABASE_VERSION: DatabaseVersion = DatabaseVersion(0);
 
     async fn dump_database(
         &self,
@@ -101,7 +102,7 @@ impl ClientModuleInit for NostrClientInit {
 pub enum NostrClientStateMachine {}
 
 impl IntoDynInstance for NostrClientStateMachine {
-    type DynType = DynState<DynGlobalClientContext>;
+    type DynType = DynState;
 
     fn into_dyn(self, instance_id: ModuleInstanceId) -> Self::DynType {
         DynState::from_typed(instance_id, self)
@@ -110,12 +111,11 @@ impl IntoDynInstance for NostrClientStateMachine {
 
 impl State for NostrClientStateMachine {
     type ModuleContext = NostrClientContext;
-    type GlobalContext = DynGlobalClientContext;
 
     fn transitions(
         &self,
         _context: &Self::ModuleContext,
-        _global_context: &Self::GlobalContext,
+        _global_context: &DynGlobalClientContext,
     ) -> Vec<fedimint_client::sm::StateTransition<Self>> {
         vec![]
     }

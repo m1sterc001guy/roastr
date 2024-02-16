@@ -66,27 +66,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "aleph-bft"
-version = "0.30.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb050890181b868ad4d601661a5e7106aca6191273c99c092d6d472119f46e56"
-dependencies = [
- "aleph-bft-rmc",
- "aleph-bft-types",
- "anyhow",
- "async-trait",
- "derivative",
- "futures",
- "futures-timer",
- "itertools 0.11.0",
- "log",
- "parity-scale-codec",
- "parking_lot",
- "rand",
- "thiserror",
-]
-
-[[package]]
 name = "aleph-bft-crypto"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -388,15 +367,9 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "base64"
-version = "0.20.0"
+version = "0.21.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ea22880d78093b0cbe17c89f64a7d457941e65759157ec6cb31a31d652b05e5"
-
-[[package]]
-name = "base64"
-version = "0.21.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ba43ea6f343b788c8764558649e08df62f86c6ef251fdaeb1ffd010a9ae50a2"
+checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
 name = "base64-compat"
@@ -1252,6 +1225,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "fedimint-aleph-bft"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6b6d7cad3a5af85956e9f1739fb8e27668652f523ccf3b8aeb20ed788a98c2a"
+dependencies = [
+ "aleph-bft-rmc",
+ "aleph-bft-types",
+ "anyhow",
+ "async-trait",
+ "derivative",
+ "futures",
+ "futures-timer",
+ "itertools 0.11.0",
+ "log",
+ "parity-scale-codec",
+ "parking_lot",
+ "rand",
+ "thiserror",
+]
+
+[[package]]
 name = "fedimint-bip39"
 version = "0.3.0-alpha"
 dependencies = [
@@ -1295,7 +1289,7 @@ version = "0.3.0-alpha"
 dependencies = [
  "anyhow",
  "async-trait",
- "base64 0.20.0",
+ "base64 0.21.7",
  "bip39",
  "bitcoin 0.29.2",
  "bitcoin_hashes 0.11.0",
@@ -1367,6 +1361,7 @@ dependencies = [
  "strum_macros",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "tracing",
 ]
 
@@ -1420,6 +1415,7 @@ dependencies = [
  "jsonrpsee-ws-client",
  "lightning 0.0.118",
  "lightning-invoice 0.26.0",
+ "lru",
  "macro_rules_attribute",
  "miniscript",
  "parity-scale-codec",
@@ -1709,7 +1705,7 @@ dependencies = [
  "aquamarine",
  "async-stream",
  "async-trait",
- "base64 0.20.0",
+ "base64 0.21.7",
  "bincode 1.3.3",
  "bitcoin_hashes 0.11.0",
  "erased-serde",
@@ -1775,7 +1771,6 @@ dependencies = [
  "fedimint-tbs",
  "fedimint-threshold-crypto",
  "futures",
- "impl-tools",
  "itertools 0.10.5",
  "rand",
  "secp256k1 0.24.3",
@@ -1818,7 +1813,6 @@ dependencies = [
 name = "fedimint-server"
 version = "0.3.0-alpha"
 dependencies = [
- "aleph-bft",
  "aleph-bft-types",
  "anyhow",
  "async-channel",
@@ -1830,6 +1824,7 @@ dependencies = [
  "bitcoin_hashes 0.12.0",
  "bytes",
  "fedimint-aead",
+ "fedimint-aleph-bft",
  "fedimint-build",
  "fedimint-core",
  "fedimint-logging",
@@ -1840,6 +1835,7 @@ dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
  "rand",
+ "rand_chacha",
  "rcgen",
  "secp256k1-zkp",
  "serde",
@@ -3192,6 +3188,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
+name = "lru"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db2c024b41519440580066ba82aab04092b333e09066a5eb86c7c4890df31f22"
+dependencies = [
+ "hashbrown 0.14.0",
+]
+
+[[package]]
 name = "lz4-sys"
 version = "1.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3303,7 +3308,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df0af088a37ea0026bf96dcd66db8bf21ed7ff528b7cbe34b7f32f6af3ae14a0"
 dependencies = [
  "aes",
- "base64 0.21.4",
+ "base64 0.21.7",
  "bip39",
  "bitcoin 0.30.2",
  "cbc",
@@ -3347,6 +3352,7 @@ dependencies = [
  "async-trait",
  "bincode2",
  "fedimint-core",
+ "nostr-sdk",
  "schnorr_fun",
  "serde",
  "thiserror",
@@ -4038,7 +4044,7 @@ version = "0.11.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e9ad3fe7488d7e34558a2033d45a0c90b72d97b4f80705666fea71472e2e6a1"
 dependencies = [
- "base64 0.21.4",
+ "base64 0.21.7",
  "bytes",
  "encoding_rs",
  "futures-core",
@@ -4203,7 +4209,7 @@ version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d3987094b1d07b653b7dfdc3f70ce9a1da9c51ac18c1b06b662e4f9a0e9f4b2"
 dependencies = [
- "base64 0.21.4",
+ "base64 0.21.7",
 ]
 
 [[package]]
@@ -4873,6 +4879,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -4930,7 +4937,7 @@ checksum = "3082666a3a6433f7f511c7192923fa1fe07c69332d3c6a2e6bb040b569199d5a"
 dependencies = [
  "async-trait",
  "axum",
- "base64 0.21.4",
+ "base64 0.21.7",
  "bytes",
  "futures-core",
  "futures-util",
@@ -4959,7 +4966,7 @@ dependencies = [
  "async-stream",
  "async-trait",
  "axum",
- "base64 0.21.4",
+ "base64 0.21.7",
  "bytes",
  "h2",
  "http",
@@ -5019,7 +5026,7 @@ version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61c5bb1d698276a2443e5ecfabc1008bf15a36c12e6a7176e7bf089ea9131140"
 dependencies = [
- "base64 0.21.4",
+ "base64 0.21.7",
  "bitflags 2.4.0",
  "bytes",
  "futures-core",

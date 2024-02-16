@@ -22,6 +22,7 @@ pub struct NostrGenParamsLocal;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NostrGenParamsConsensus {
     pub threshold: u32,
+    pub num_nonces: u32,
 }
 
 impl Default for NostrGenParams {
@@ -33,6 +34,10 @@ impl Default for NostrGenParams {
                     .unwrap_or("3".to_string())
                     .parse::<u32>()
                     .expect("NOSTR_THRESHOLD was not an integer"),
+                num_nonces: std::env::var("NOSTR_NUM_NONCES")
+                    .unwrap_or("5".to_string())
+                    .parse::<u32>()
+                    .expect("NOSTR_NUM_NONCES was not an integer"),
             },
         }
     }
@@ -60,16 +65,19 @@ pub struct NostrConfigLocal;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NostrConfigConsensus {
     pub threshold: u32,
+    pub num_nonces: u32,
     pub frost_key: FrostKey<Normal>,
 }
 
 impl Encodable for NostrConfigConsensus {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
         let threshold_bytes = self.threshold.to_le_bytes();
+        let num_nonces_bytes = self.num_nonces.to_le_bytes();
         let frost_key_bytes = bincode2::serialize(&self.frost_key).map_err(|_| {
             std::io::Error::new(ErrorKind::Other, "Error serializing FrostKey".to_string())
         })?;
         writer.write(threshold_bytes.as_slice())?;
+        writer.write(num_nonces_bytes.as_slice())?;
         writer.write(frost_key_bytes.as_slice())?;
         Ok(threshold_bytes.len() + frost_key_bytes.len())
     }
@@ -85,6 +93,11 @@ impl Decodable for NostrConfigConsensus {
             .map_err(|_| DecodeError::from_str("Failed to read threshold bytes"))?;
         let threshold = u32::from_le_bytes(threshold_bytes);
 
+        let mut num_nonces_bytes = [0; 4];
+        r.read_exact(&mut num_nonces_bytes)
+            .map_err(|_| DecodeError::from_str("Failed to read threshold bytes"))?;
+        let num_nonces = u32::from_le_bytes(num_nonces_bytes);
+
         let mut frost_key_bytes = Vec::new();
         r.read_to_end(&mut frost_key_bytes)
             .map_err(|_| DecodeError::from_str("Failed to read FrostKey bytes"))?;
@@ -93,6 +106,7 @@ impl Decodable for NostrConfigConsensus {
 
         Ok(NostrConfigConsensus {
             threshold,
+            num_nonces,
             frost_key,
         })
     }
