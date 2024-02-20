@@ -219,6 +219,7 @@ impl ServerModuleInit for NostrInit {
         let public_key = config.frost_key.public_key().to_xonly_bytes();
         let xonly = nostr_sdk::key::XOnlyPublicKey::from_slice(&public_key)?;
         Ok(NostrClientConfig {
+            threshold: config.threshold,
             npub: NostrNPub { npub: xonly },
         })
     }

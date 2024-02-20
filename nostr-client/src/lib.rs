@@ -23,7 +23,8 @@ use fedimint_core::{apply, async_trait_maybe_send, Amount, NumPeers, PeerId};
 pub use nostr_common as common;
 use nostr_common::{NostrCommonInit, NostrModuleTypes};
 use nostr_sdk::EventId;
-use schnorr_fun::frost;
+use schnorr_fun::{frost, Message};
+use secp256k1::XOnlyPublicKey;
 use serde_json::json;
 use sha2::Sha256;
 
@@ -138,7 +139,15 @@ impl ClientModule for NostrClientModule {
                     )
                     .await?;
 
-                Ok(json!(event_id))
+                let threshold = self.cfg.threshold;
+                let signing_sessions = self.get_signing_sessions(event_id).await?;
+                for (_, signatures) in signing_sessions {
+                    if signatures.len() >= threshold as usize {
+                        return Ok(json!("Can make a signature!"));
+                    }
+                }
+
+                Ok(json!("Cannot make a signature yet for {event_id}"))
             }
             "get-sig-shares" => {
                 if args.len() != 2 {
@@ -193,6 +202,21 @@ impl NostrClientModule {
         }
 
         Ok(signing_sessions)
+    }
+
+    fn create_frost_signature(
+        &self,
+        shares: BTreeMap<PeerId, PublicScalar>,
+        frost_key: XOnlyPublicKey,
+        event_id: EventId,
+    ) {
+        let frost_shares = shares
+            .into_iter()
+            .map(|(_, sig_share)| sig_share.0)
+            .collect::<Vec<_>>();
+        //let message = Message::raw(event_id.as_bytes());
+        //let combined_sig = self.frost.combine_signature_shares(frost_key,
+        // session, signature_shares)
     }
 }
 

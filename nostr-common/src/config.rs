@@ -53,6 +53,7 @@ pub struct NostrConfig {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Encodable, Decodable, Hash)]
 pub struct NostrClientConfig {
+    pub threshold: u32,
     pub npub: NostrNPub,
 }
 
@@ -61,6 +62,8 @@ pub struct NostrNPub {
     pub npub: nostr_sdk::key::XOnlyPublicKey,
 }
 
+// TODO: Fix encoding for this so that it doesnt just read all the way to the
+// end
 impl Encodable for NostrNPub {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
         let bech32 = self
