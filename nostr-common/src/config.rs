@@ -53,7 +53,6 @@ pub struct NostrConfig {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Encodable, Decodable, Hash)]
 pub struct NostrClientConfig {
-    pub threshold: u32,
     pub npub: NostrNPub,
 }
 
@@ -101,22 +100,20 @@ pub struct NostrConfigLocal;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NostrConfigConsensus {
-    pub threshold: u32,
     pub num_nonces: u32,
+    //pub frost_key: EncodedFrostKey,
     pub frost_key: FrostKey<Normal>,
 }
 
 impl Encodable for NostrConfigConsensus {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
-        let threshold_bytes = self.threshold.to_le_bytes();
         let num_nonces_bytes = self.num_nonces.to_le_bytes();
         let frost_key_bytes = bincode2::serialize(&self.frost_key).map_err(|_| {
             std::io::Error::new(ErrorKind::Other, "Error serializing FrostKey".to_string())
         })?;
-        writer.write(threshold_bytes.as_slice())?;
         writer.write(num_nonces_bytes.as_slice())?;
         writer.write(frost_key_bytes.as_slice())?;
-        Ok(threshold_bytes.len() + num_nonces_bytes.len() + frost_key_bytes.len())
+        Ok(num_nonces_bytes.len() + frost_key_bytes.len())
     }
 }
 
@@ -125,11 +122,6 @@ impl Decodable for NostrConfigConsensus {
         r: &mut R,
         _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
     ) -> Result<Self, fedimint_core::encoding::DecodeError> {
-        let mut threshold_bytes = [0; 4];
-        r.read_exact(&mut threshold_bytes)
-            .map_err(|_| DecodeError::from_str("Failed to read threshold bytes"))?;
-        let threshold = u32::from_le_bytes(threshold_bytes);
-
         let mut num_nonces_bytes = [0; 4];
         r.read_exact(&mut num_nonces_bytes)
             .map_err(|_| DecodeError::from_str("Failed to read threshold bytes"))?;
@@ -142,7 +134,6 @@ impl Decodable for NostrConfigConsensus {
             .map_err(|_| DecodeError::from_str("Failed to deserialize FrostKey"))?;
 
         Ok(NostrConfigConsensus {
-            threshold,
             num_nonces,
             frost_key,
         })

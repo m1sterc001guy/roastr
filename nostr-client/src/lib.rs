@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use anyhow::bail;
 use common::config::NostrClientConfig;
-use common::{NostrFrost, PublicScalar, UnsignedEvent};
+use common::{NostrFrost, PublicScalar, SignatureShare, UnsignedEvent};
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
 use fedimint_client::module::{ClientModule, IClientModule};
@@ -139,6 +139,7 @@ impl ClientModule for NostrClientModule {
                     )
                     .await?;
 
+                /*
                 let threshold = self.cfg.threshold;
                 let signing_sessions = self.get_signing_sessions(event_id).await?;
                 for (_, signatures) in signing_sessions {
@@ -146,8 +147,10 @@ impl ClientModule for NostrClientModule {
                         return Ok(json!("Can make a signature!"));
                     }
                 }
-
                 Ok(json!("Cannot make a signature yet for {event_id}"))
+                */
+
+                Ok(json!(event_id))
             }
             "get-sig-shares" => {
                 if args.len() != 2 {
@@ -175,9 +178,9 @@ impl NostrClientModule {
     async fn get_signing_sessions(
         &self,
         event_id: EventId,
-    ) -> anyhow::Result<BTreeMap<String, BTreeMap<PeerId, PublicScalar>>> {
+    ) -> anyhow::Result<BTreeMap<String, BTreeMap<PeerId, SignatureShare>>> {
         let total_peers = self.module_api.all_peers().total();
-        let sig_shares: BTreeMap<PeerId, BTreeMap<String, PublicScalar>> = self
+        let sig_shares: BTreeMap<PeerId, BTreeMap<String, SignatureShare>> = self
             .module_api
             .request_with_strategy(
                 AllOrDeadline::new(
@@ -189,7 +192,7 @@ impl NostrClientModule {
             )
             .await?;
 
-        let mut signing_sessions: BTreeMap<String, BTreeMap<PeerId, PublicScalar>> =
+        let mut signing_sessions: BTreeMap<String, BTreeMap<PeerId, SignatureShare>> =
             BTreeMap::new();
 
         for (peer_id, inner_map) in sig_shares {
@@ -206,16 +209,23 @@ impl NostrClientModule {
 
     fn create_frost_signature(
         &self,
-        shares: BTreeMap<PeerId, PublicScalar>,
+        shares: BTreeMap<PeerId, SignatureShare>,
         frost_key: XOnlyPublicKey,
         event_id: EventId,
     ) {
         let frost_shares = shares
+            .clone()
             .into_iter()
-            .map(|(_, sig_share)| sig_share.0)
+            .map(|(_, sig_share)| sig_share.share.0)
+            .collect::<Vec<_>>();
+        let nonces = shares
+            .into_iter()
+            .map(|(_, sig_share)| sig_share.nonce.0.public())
             .collect::<Vec<_>>();
         //let message = Message::raw(event_id.as_bytes());
-        //let combined_sig = self.frost.combine_signature_shares(frost_key,
+        //let session = self.frost.start_sign_session(&frost_key, nonces,
+        // message); let combined_sig =
+        // self.frost.combine_signature_shares(frost_key,
         // session, signature_shares)
     }
 }

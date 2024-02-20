@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::{impl_db_lookup, impl_db_record, PeerId};
-use nostr_common::{NonceKeyPair, PublicScalar, UnsignedEvent};
+use nostr_common::{NonceKeyPair, SignatureShare, UnsignedEvent};
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 
@@ -65,6 +65,6 @@ pub struct SignatureShareKey {
 
 impl_db_record!(
     key = SignatureShareKey,
-    value = PublicScalar,
+    value = SignatureShare,
     db_prefix = DbKeyPrefix::SignatureShare
 );

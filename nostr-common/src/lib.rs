@@ -328,7 +328,7 @@ impl Decodable for Signature {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Encodable, Decodable, Serialize, Deserialize)]
 pub struct SignatureShare {
     pub share: PublicScalar,
     pub nonce: NonceKeyPair,

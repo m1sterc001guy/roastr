@@ -28,7 +28,7 @@ use nostr_common::config::{
 use nostr_common::{
     peer_id_to_scalar, NonceKeyPair, NostrCommonInit, NostrConsensusItem, NostrFrost, NostrInput,
     NostrInputError, NostrModuleTypes, NostrOutcome, NostrOutput, NostrOutputError, Point,
-    PublicScalar, SecretScalar, Signature, UnsignedEvent, CONSENSUS_VERSION, KIND,
+    PublicScalar, SecretScalar, Signature, SignatureShare, UnsignedEvent, CONSENSUS_VERSION, KIND,
 };
 use nostr_sdk::EventId;
 use schnorr_fun::{frost, Message};
@@ -202,7 +202,6 @@ impl ServerModuleInit for NostrInit {
                 my_secret_share,
             },
             consensus: NostrConfigConsensus {
-                threshold,
                 frost_key,
                 num_nonces: params.consensus.num_nonces,
             },
@@ -218,8 +217,8 @@ impl ServerModuleInit for NostrInit {
         let config = NostrConfigConsensus::from_erased(config)?;
         let public_key = config.frost_key.public_key().to_xonly_bytes();
         let xonly = nostr_sdk::key::XOnlyPublicKey::from_slice(&public_key)?;
+        //let key = config.frost_key.into_xonly_key();
         Ok(NostrClientConfig {
-            threshold: config.threshold,
             npub: NostrNPub { npub: xonly },
         })
     }
@@ -430,7 +429,7 @@ impl ServerModule for Nostr {
             api_endpoint! {
                 "get_sig_shares",
                 ApiVersion::new(0, 0),
-                async |module: &Nostr, context, note_id: EventId| -> BTreeMap<String, PublicScalar> {
+                async |module: &Nostr, context, note_id: EventId| -> BTreeMap<String, SignatureShare> {
 
                     let mut dbtx = context.dbtx();
                     let mut sigs = BTreeMap::new();
@@ -486,7 +485,7 @@ impl Nostr {
         dbtx: &mut DatabaseTransaction<'_>,
         peers: Vec<PeerId>,
         note_id: EventId,
-    ) -> anyhow::Result<Option<PublicScalar>> {
+    ) -> anyhow::Result<Option<SignatureShare>> {
         let signing_session = self.get_signing_session(dbtx, peers.clone(), note_id).await;
         if let Some(session) = signing_session {
             // Check if a signature share for this session already exists
@@ -511,7 +510,7 @@ impl Nostr {
         dbtx: &mut DatabaseTransaction<'_>,
         peers: Vec<PeerId>,
         note_id: EventId,
-    ) -> anyhow::Result<PublicScalar> {
+    ) -> anyhow::Result<SignatureShare> {
         let signing_session = self.get_signing_session(dbtx, peers.clone(), note_id).await;
         if let Some(session) = signing_session {
             // Check if a signature share for this session already exists
@@ -580,7 +579,7 @@ impl Nostr {
         &self,
         unsigned_event: UnsignedEvent,
         nonces: BTreeMap<PeerId, NonceKeyPair>,
-    ) -> anyhow::Result<PublicScalar> {
+    ) -> anyhow::Result<SignatureShare> {
         let frost_key = self.cfg.consensus.frost_key.clone();
         let xonly_frost_key = frost_key.into_xonly_key();
         let message_raw = Message::raw(unsigned_event.0.id.as_bytes());
@@ -603,14 +602,17 @@ impl Nostr {
             &session,
             peer_id_to_scalar(&my_index),
             &my_secret_share,
-            my_nonce.0,
+            my_nonce.clone().0,
         );
 
         tracing::info!("Creating signature share: {my_sig_share:?}");
 
-        Ok(PublicScalar(
-            my_sig_share.non_zero().expect("Signature share was zero"),
-        ))
+        let signature_share = SignatureShare {
+            share: PublicScalar(my_sig_share.non_zero().expect("Signature share was zero")),
+            nonce: my_nonce,
+        };
+
+        Ok(signature_share)
     }
 }
 
