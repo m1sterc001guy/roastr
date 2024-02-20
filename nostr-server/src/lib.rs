@@ -23,7 +23,7 @@ use fedimint_server::config::distributedgen::PeerHandleOps;
 use futures::StreamExt;
 use nostr_common::config::{
     NostrClientConfig, NostrConfig, NostrConfigConsensus, NostrConfigLocal, NostrConfigPrivate,
-    NostrGenParams, NostrNPub,
+    NostrFrostKey, NostrGenParams,
 };
 use nostr_common::{
     peer_id_to_scalar, NonceKeyPair, NostrCommonInit, NostrConsensusItem, NostrFrost, NostrInput,
@@ -31,7 +31,9 @@ use nostr_common::{
     PublicScalar, SecretScalar, Signature, SignatureShare, UnsignedEvent, CONSENSUS_VERSION, KIND,
 };
 use nostr_sdk::EventId;
-use schnorr_fun::{frost, Message};
+use rand::rngs::OsRng;
+use schnorr_fun::fun::poly;
+use schnorr_fun::Message;
 
 use crate::db::SignatureShareKey;
 
@@ -115,11 +117,10 @@ impl ServerModuleInit for NostrInit {
         peers: &PeerHandle,
         params: &ConfigGenModuleParams,
     ) -> DkgResult<ServerModuleConfig> {
-        let mut rng = rand::rngs::OsRng;
         let params = self.parse_params(params).unwrap();
         let threshold = params.consensus.threshold;
-        let my_secret_poly = frost::generate_scalar_poly(threshold as usize, &mut rng);
-        let my_public_poly = frost::to_point_poly(&my_secret_poly)
+        let my_secret_poly = poly::scalar::generate(threshold as usize, &mut OsRng);
+        let my_public_poly = poly::scalar::to_point_poly(&my_secret_poly)
             .iter()
             .map(|point| Point(point.clone()))
             .collect::<Vec<_>>();
@@ -141,9 +142,11 @@ impl ServerModuleInit for NostrInit {
             })
             .collect::<BTreeMap<_, _>>();
 
+        let my_index = peer_id_to_scalar(&peers.our_id);
+        let my_polys = BTreeMap::from_iter([(my_index, &my_secret_poly)]);
         let keygen = self
             .frost
-            .new_keygen(public_polynomials)
+            .new_keygen(public_polynomials, &my_polys)
             .expect("Something went wrong with what was provided by the other parties");
         let keygen_id = self.frost.keygen_id(&keygen);
         let pop_message = Message::raw(&keygen_id);
@@ -164,8 +167,6 @@ impl ServerModuleInit for NostrInit {
                 self.decoder(),
             )
             .await?;
-
-        let my_index = peer_id_to_scalar(&peers.our_id);
 
         let my_shares = shares_and_pop
             .iter()
@@ -202,8 +203,8 @@ impl ServerModuleInit for NostrInit {
                 my_secret_share,
             },
             consensus: NostrConfigConsensus {
-                frost_key,
                 num_nonces: params.consensus.num_nonces,
+                frost_key: NostrFrostKey(frost_key.into()),
             },
         }
         .to_erased())
@@ -215,11 +216,8 @@ impl ServerModuleInit for NostrInit {
         config: &ServerModuleConsensusConfig,
     ) -> anyhow::Result<NostrClientConfig> {
         let config = NostrConfigConsensus::from_erased(config)?;
-        let public_key = config.frost_key.public_key().to_xonly_bytes();
-        let xonly = nostr_sdk::key::XOnlyPublicKey::from_slice(&public_key)?;
-        //let key = config.frost_key.into_xonly_key();
         Ok(NostrClientConfig {
-            npub: NostrNPub { npub: xonly },
+            frost_key: config.frost_key,
         })
     }
 
@@ -434,7 +432,7 @@ impl ServerModule for Nostr {
                     let mut dbtx = context.dbtx();
                     let mut sigs = BTreeMap::new();
                     // TODO: iterate through all signing sessions
-                    let my_peer_id = module.cfg.private.my_peer_id;
+                    //let my_peer_id = module.cfg.private.my_peer_id;
                     let peers: Vec<PeerId> = vec![0.into(), 1.into(), 2.into()];
                     let peers_str = peers
                         .iter()
@@ -445,7 +443,6 @@ impl ServerModule for Nostr {
                     if let Ok(Some(sig_share)) = module.get_sig_share(&mut dbtx.to_ref_nc(), peers.clone(), note_id).await {
                         tracing::info!("Received sign_note request. Returning sig share: {sig_share:?}");
                         sigs.insert(peers_str, sig_share);
-                        //return Ok(Some(sig_share));
                         return Ok(sigs);
                     }
 
@@ -581,7 +578,7 @@ impl Nostr {
         nonces: BTreeMap<PeerId, NonceKeyPair>,
     ) -> anyhow::Result<SignatureShare> {
         let frost_key = self.cfg.consensus.frost_key.clone();
-        let xonly_frost_key = frost_key.into_xonly_key();
+        let xonly_frost_key = frost_key.0.into_frost_key().into_xonly_key();
         let message_raw = Message::raw(unsigned_event.0.id.as_bytes());
         let session_nonces = nonces
             .clone()

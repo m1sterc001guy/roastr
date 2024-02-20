@@ -22,6 +22,6 @@ nostr-sdk = "0.24.0"
 rand = "0.8"
 sha2 = "0.10"
 serde = { version = "1.0.149", features = ["derive"] }
-schnorr_fun = { version = "0.9.1", features = ["serde"]}
+schnorr_fun = { version = "0.10.0", features = ["serde"]}
 thiserror = "1.0.39"
 tracing = "0.1.37"

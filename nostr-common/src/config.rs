@@ -4,12 +4,11 @@ use std::io::ErrorKind;
 use fedimint_core::core::ModuleKind;
 use fedimint_core::encoding::{Decodable, DecodeError, Encodable};
 use fedimint_core::{plugin_types_trait_impl_config, PeerId};
-use nostr_sdk::{FromBech32, ToBech32};
-use schnorr_fun::frost::FrostKey;
-use schnorr_fun::fun::marker::{Normal, Secret};
+use schnorr_fun::frost::EncodedFrostKey;
+use schnorr_fun::fun::marker::Secret;
 use serde::{Deserialize, Serialize};
 
-use crate::NostrCommonInit;
+use crate::{Hash, NostrCommonInit};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NostrGenParams {
@@ -53,40 +52,7 @@ pub struct NostrConfig {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Encodable, Decodable, Hash)]
 pub struct NostrClientConfig {
-    pub npub: NostrNPub,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Hash)]
-pub struct NostrNPub {
-    pub npub: nostr_sdk::key::XOnlyPublicKey,
-}
-
-// TODO: Fix encoding for this so that it doesnt just read all the way to the
-// end
-impl Encodable for NostrNPub {
-    fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
-        let bech32 = self
-            .npub
-            .to_bech32()
-            .map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e))?;
-        let bech32_bytes = bech32.as_bytes();
-        writer.write(bech32_bytes)?;
-        Ok(bech32_bytes.len())
-    }
-}
-
-impl Decodable for NostrNPub {
-    fn consensus_decode<R: std::io::Read>(
-        r: &mut R,
-        _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
-    ) -> Result<Self, DecodeError> {
-        let mut str = String::new();
-        r.read_to_string(&mut str)
-            .map_err(|e| DecodeError::from_err(e))?;
-        let bech32 = nostr_sdk::key::XOnlyPublicKey::from_bech32(str)
-            .map_err(|e| DecodeError::from_err(e))?;
-        Ok(NostrNPub { npub: bech32 })
-    }
+    pub frost_key: NostrFrostKey,
 }
 
 impl fmt::Display for NostrClientConfig {
@@ -98,45 +64,48 @@ impl fmt::Display for NostrClientConfig {
 #[derive(Clone, Debug, Serialize, Deserialize, Decodable, Encodable)]
 pub struct NostrConfigLocal;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Encodable, Decodable)]
 pub struct NostrConfigConsensus {
     pub num_nonces: u32,
-    //pub frost_key: EncodedFrostKey,
-    pub frost_key: FrostKey<Normal>,
+    pub frost_key: NostrFrostKey,
 }
 
-impl Encodable for NostrConfigConsensus {
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
+pub struct NostrFrostKey(pub EncodedFrostKey);
+
+impl Encodable for NostrFrostKey {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
-        let num_nonces_bytes = self.num_nonces.to_le_bytes();
-        let frost_key_bytes = bincode2::serialize(&self.frost_key).map_err(|_| {
+        let frost_key_bytes = bincode2::serialize(&self.0).map_err(|_| {
             std::io::Error::new(ErrorKind::Other, "Error serializing FrostKey".to_string())
         })?;
-        writer.write(num_nonces_bytes.as_slice())?;
         writer.write(frost_key_bytes.as_slice())?;
-        Ok(num_nonces_bytes.len() + frost_key_bytes.len())
+        Ok(frost_key_bytes.len())
     }
 }
 
-impl Decodable for NostrConfigConsensus {
+impl Decodable for NostrFrostKey {
     fn consensus_decode<R: std::io::Read>(
         r: &mut R,
         _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
-    ) -> Result<Self, fedimint_core::encoding::DecodeError> {
-        let mut num_nonces_bytes = [0; 4];
-        r.read_exact(&mut num_nonces_bytes)
-            .map_err(|_| DecodeError::from_str("Failed to read threshold bytes"))?;
-        let num_nonces = u32::from_le_bytes(num_nonces_bytes);
-
+    ) -> Result<Self, DecodeError> {
         let mut frost_key_bytes = Vec::new();
+        // TODO: Should use read_exact here instead
         r.read_to_end(&mut frost_key_bytes)
             .map_err(|_| DecodeError::from_str("Failed to read FrostKey bytes"))?;
         let frost_key = bincode2::deserialize(&frost_key_bytes)
             .map_err(|_| DecodeError::from_str("Failed to deserialize FrostKey"))?;
+        Ok(NostrFrostKey(frost_key))
+    }
+}
 
-        Ok(NostrConfigConsensus {
-            num_nonces,
-            frost_key,
-        })
+impl Hash for NostrFrostKey {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let mut frost_key_bytes = bincode2::serialize(&self.0)
+            .map_err(|_| {
+                std::io::Error::new(ErrorKind::Other, "Error serializing FrostKey".to_string())
+            })
+            .expect("Could not serialize EncodedFrostKey into bytes");
+        state.write(&mut frost_key_bytes);
     }
 }
 

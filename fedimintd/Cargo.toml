@@ -16,5 +16,5 @@ tokio = { version = "1.25.0", features = ["full", "tracing"] }
 nostr-server = { path = "../nostr-server" }
 nostr-common = { path = "../nostr-common" }
 rand = "0.8"
-schnorr_fun = { version = "0.9.1", features = ["serde", "bincode"] }
+schnorr_fun = { version = "0.10.0", features = ["serde", "bincode"] }
 sha2 = "0.10"

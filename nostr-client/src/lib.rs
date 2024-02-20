@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use anyhow::bail;
 use common::config::NostrClientConfig;
-use common::{NostrFrost, PublicScalar, SignatureShare, UnsignedEvent};
+use common::{NostrFrost, SignatureShare, UnsignedEvent};
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
 use fedimint_client::module::{ClientModule, IClientModule};
@@ -23,8 +23,7 @@ use fedimint_core::{apply, async_trait_maybe_send, Amount, NumPeers, PeerId};
 pub use nostr_common as common;
 use nostr_common::{NostrCommonInit, NostrModuleTypes};
 use nostr_sdk::EventId;
-use schnorr_fun::{frost, Message};
-use secp256k1::XOnlyPublicKey;
+use schnorr_fun::frost;
 use serde_json::json;
 use sha2::Sha256;
 
@@ -106,9 +105,17 @@ impl ClientModule for NostrClientModule {
                 let text: String = args[1].to_string_lossy().to_string();
                 let peer_id: PeerId = args[2].to_string_lossy().parse::<PeerId>()?;
 
-                let pubkey = self.cfg.npub.npub;
+                let pubkey = self
+                    .cfg
+                    .frost_key
+                    .0
+                    .into_frost_key()
+                    .public_key()
+                    .to_xonly_bytes();
+                let xonly = nostr_sdk::key::XOnlyPublicKey::from_slice(&pubkey)
+                    .expect("Failed to create xonly public key");
                 let unsigned_event = UnsignedEvent(
-                    nostr_sdk::EventBuilder::new_text_note(text, &[]).to_unsigned_event(pubkey),
+                    nostr_sdk::EventBuilder::new_text_note(text, &[]).to_unsigned_event(xonly),
                 );
                 self.module_api
                     .request_single_peer(
@@ -207,6 +214,7 @@ impl NostrClientModule {
         Ok(signing_sessions)
     }
 
+    /*
     fn create_frost_signature(
         &self,
         shares: BTreeMap<PeerId, SignatureShare>,
@@ -228,6 +236,7 @@ impl NostrClientModule {
         // self.frost.combine_signature_shares(frost_key,
         // session, signature_shares)
     }
+    */
 }
 
 #[derive(Debug, Clone)]
