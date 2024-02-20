@@ -13,9 +13,9 @@ use fedimint_core::core::ModuleInstanceId;
 use fedimint_core::db::{DatabaseTransaction, DatabaseVersion, IDatabaseTransactionOpsCoreTyped};
 use fedimint_core::module::audit::Audit;
 use fedimint_core::module::{
-    api_endpoint, ApiEndpoint, ApiError, ApiVersion, CoreConsensusVersion, IDynCommonModuleInit,
-    InputMeta, ModuleConsensusVersion, ModuleInit, PeerHandle, ServerModuleInit,
-    ServerModuleInitArgs, SupportedModuleApiVersions, TransactionItemAmount,
+    api_endpoint, ApiEndpoint, ApiVersion, CoreConsensusVersion, IDynCommonModuleInit, InputMeta,
+    ModuleConsensusVersion, ModuleInit, PeerHandle, ServerModuleInit, ServerModuleInitArgs,
+    SupportedModuleApiVersions, TransactionItemAmount,
 };
 use fedimint_core::server::DynServerModule;
 use fedimint_core::{OutPoint, PeerId, ServerModule};
@@ -26,42 +26,16 @@ use nostr_common::config::{
     NostrGenParams, NostrNPub,
 };
 use nostr_common::{
-    peer_id_to_scalar, NonceKeyPair, NostrCommonInit, NostrConsensusItem, NostrInput,
+    peer_id_to_scalar, NonceKeyPair, NostrCommonInit, NostrConsensusItem, NostrFrost, NostrInput,
     NostrInputError, NostrModuleTypes, NostrOutcome, NostrOutput, NostrOutputError, Point,
     PublicScalar, SecretScalar, Signature, UnsignedEvent, CONSENSUS_VERSION, KIND,
 };
 use nostr_sdk::EventId;
-use rand::rngs::OsRng;
-use schnorr_fun::frost::{self, Frost};
-use schnorr_fun::nonce::{GlobalRng, Synthetic};
-use schnorr_fun::Message;
-use sha2::digest::core_api::{CoreWrapper, CtVariableCoreWrapper};
-use sha2::digest::typenum::{UInt, UTerm, B0, B1};
-use sha2::{OidSha256, Sha256VarCore};
+use schnorr_fun::{frost, Message};
 
 use crate::db::SignatureShareKey;
 
 mod db;
-
-type NostrFrost = Frost<
-    CoreWrapper<
-        CtVariableCoreWrapper<
-            Sha256VarCore,
-            UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>,
-            OidSha256,
-        >,
-    >,
-    Synthetic<
-        CoreWrapper<
-            CtVariableCoreWrapper<
-                Sha256VarCore,
-                UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>,
-                OidSha256,
-            >,
-        >,
-        GlobalRng<OsRng>,
-    >,
->;
 
 /// Generates the module
 #[derive(Clone)]

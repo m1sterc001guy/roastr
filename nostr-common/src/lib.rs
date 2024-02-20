@@ -8,8 +8,14 @@ use fedimint_core::encoding::{Decodable, DecodeError, Encodable};
 use fedimint_core::module::{CommonModuleInit, ModuleCommon, ModuleConsensusVersion};
 use fedimint_core::{plugin_types_trait_impl_common, PeerId};
 use nostr_sdk::UnsignedEvent as NdkUnsignedEvent;
+use rand::rngs::OsRng;
+use schnorr_fun::frost::Frost;
 use schnorr_fun::fun::marker::{NonZero, Public, Secret, Zero};
+use schnorr_fun::nonce::{GlobalRng, Synthetic};
 use serde::{Deserialize, Serialize};
+use sha2::digest::core_api::{CoreWrapper, CtVariableCoreWrapper};
+use sha2::digest::typenum::{UInt, UTerm, B0, B1};
+use sha2::{OidSha256, Sha256VarCore};
 use thiserror::Error;
 
 // Common contains types shared by both the client and server
@@ -22,6 +28,26 @@ pub const KIND: ModuleKind = ModuleKind::from_static_str("nostr");
 
 /// Modules are non-compatible with older versions
 pub const CONSENSUS_VERSION: ModuleConsensusVersion = ModuleConsensusVersion::new(0, 0);
+
+pub type NostrFrost = Frost<
+    CoreWrapper<
+        CtVariableCoreWrapper<
+            Sha256VarCore,
+            UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>,
+            OidSha256,
+        >,
+    >,
+    Synthetic<
+        CoreWrapper<
+            CtVariableCoreWrapper<
+                Sha256VarCore,
+                UInt<UInt<UInt<UInt<UInt<UInt<UTerm, B1>, B0>, B0>, B0>, B0>, B0>,
+                OidSha256,
+            >,
+        >,
+        GlobalRng<OsRng>,
+    >,
+>;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Encodable, Decodable)]
 pub enum NostrConsensusItem {

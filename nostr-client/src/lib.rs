@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use anyhow::bail;
 use common::config::NostrClientConfig;
-use common::{PublicScalar, UnsignedEvent};
+use common::{NostrFrost, PublicScalar, UnsignedEvent};
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
 use fedimint_client::module::{ClientModule, IClientModule};
@@ -18,20 +18,28 @@ use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::module::{
     ApiRequestErased, ApiVersion, ModuleCommon, MultiApiVersion, TransactionItemAmount,
 };
-use fedimint_core::query::{AllOrDeadline, UnionResponses};
+use fedimint_core::query::AllOrDeadline;
 use fedimint_core::{apply, async_trait_maybe_send, Amount, NumPeers, PeerId};
 pub use nostr_common as common;
 use nostr_common::{NostrCommonInit, NostrModuleTypes};
 use nostr_sdk::EventId;
+use schnorr_fun::frost;
 use serde_json::json;
+use sha2::Sha256;
 
 pub mod api;
 mod db;
 
-#[derive(Debug)]
 pub struct NostrClientModule {
     pub cfg: NostrClientConfig,
     pub module_api: DynModuleApi,
+    pub frost: NostrFrost,
+}
+
+impl std::fmt::Debug for NostrClientModule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NostrClientModule").finish()
+    }
 }
 
 /// Data needed by the state machine
@@ -139,21 +147,8 @@ impl ClientModule for NostrClientModule {
 
                 let event_id: String = args[1].to_string_lossy().to_string();
                 let event_id = EventId::from_str(event_id.as_str())?;
-
-                let total_peers = self.module_api.all_peers().total();
-                let sig_shares: BTreeMap<PeerId, BTreeMap<String, PublicScalar>> = self
-                    .module_api
-                    .request_with_strategy(
-                        AllOrDeadline::new(
-                            total_peers,
-                            fedimint_core::time::now() + Duration::from_secs(60),
-                        ),
-                        "get_sig_shares".to_string(),
-                        ApiRequestErased::new(event_id),
-                    )
-                    .await?;
-
-                Ok(json!(sig_shares))
+                let signing_sessions = self.get_signing_sessions(event_id).await?;
+                Ok(json!(signing_sessions))
             }
             "help" => {
                 let mut map = HashMap::new();
@@ -164,6 +159,40 @@ impl ClientModule for NostrClientModule {
                 bail!("Unknown command: {command}, supported commands: {SUPPORTED_COMMANDS}");
             }
         }
+    }
+}
+
+impl NostrClientModule {
+    async fn get_signing_sessions(
+        &self,
+        event_id: EventId,
+    ) -> anyhow::Result<BTreeMap<String, BTreeMap<PeerId, PublicScalar>>> {
+        let total_peers = self.module_api.all_peers().total();
+        let sig_shares: BTreeMap<PeerId, BTreeMap<String, PublicScalar>> = self
+            .module_api
+            .request_with_strategy(
+                AllOrDeadline::new(
+                    total_peers,
+                    fedimint_core::time::now() + Duration::from_secs(60),
+                ),
+                "get_sig_shares".to_string(),
+                ApiRequestErased::new(event_id),
+            )
+            .await?;
+
+        let mut signing_sessions: BTreeMap<String, BTreeMap<PeerId, PublicScalar>> =
+            BTreeMap::new();
+
+        for (peer_id, inner_map) in sig_shares {
+            for (key, value) in inner_map {
+                signing_sessions
+                    .entry(key)
+                    .or_insert_with(BTreeMap::new)
+                    .insert(peer_id.clone(), value);
+            }
+        }
+
+        Ok(signing_sessions)
     }
 }
 
@@ -197,6 +226,7 @@ impl ClientModuleInit for NostrClientInit {
         Ok(NostrClientModule {
             cfg: args.cfg().clone(),
             module_api: args.module_api().clone(),
+            frost: frost::new_with_synthetic_nonces::<Sha256, rand::rngs::OsRng>(),
         })
     }
 }
