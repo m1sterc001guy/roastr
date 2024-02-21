@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use anyhow::bail;
 use common::config::NostrClientConfig;
-use common::{peer_id_to_scalar, NostrFrost, SignatureShare, UnsignedEvent};
+use common::{peer_id_to_scalar, NostrEventId, NostrFrost, SignatureShare, UnsignedEvent};
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
 use fedimint_client::module::{ClientModule, IClientModule};
@@ -135,7 +135,7 @@ impl ClientModule for NostrClientModule {
                 }
 
                 let event_id: String = args[1].to_string_lossy().to_string();
-                let event_id = EventId::from_str(event_id.as_str())?;
+                let event_id = NostrEventId(EventId::from_str(event_id.as_str())?);
                 let peer_id: PeerId = args[2].to_string_lossy().parse::<PeerId>()?;
 
                 self.module_api
@@ -166,7 +166,7 @@ impl ClientModule for NostrClientModule {
                 }
 
                 let event_id: String = args[1].to_string_lossy().to_string();
-                let event_id = EventId::from_str(event_id.as_str())?;
+                let event_id = NostrEventId(EventId::from_str(event_id.as_str())?);
                 let signing_sessions = self.get_signing_sessions(event_id).await?;
                 Ok(json!(signing_sessions))
             }
@@ -185,7 +185,7 @@ impl ClientModule for NostrClientModule {
 impl NostrClientModule {
     async fn get_signing_sessions(
         &self,
-        event_id: EventId,
+        event_id: NostrEventId,
     ) -> anyhow::Result<BTreeMap<String, BTreeMap<PeerId, SignatureShare>>> {
         let total_peers = self.module_api.all_peers().total();
         let sig_shares: BTreeMap<PeerId, BTreeMap<String, SignatureShare>> = self
@@ -231,7 +231,7 @@ impl NostrClientModule {
         let session_nonces = shares
             .clone()
             .into_iter()
-            .map(|(peer_id, sig_share)| (peer_id_to_scalar(&peer_id), sig_share.nonce.0.public()))
+            .map(|(peer_id, sig_share)| (peer_id_to_scalar(&peer_id), sig_share.nonce.public()))
             .collect::<BTreeMap<_, _>>();
 
         let message = Message::raw(unsigned_event.0.id.as_bytes());

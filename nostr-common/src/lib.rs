@@ -1,6 +1,7 @@
 use core::hash::Hash;
 use std::fmt::{self, Display};
 use std::num::NonZeroU32;
+use std::ops::Deref;
 
 use config::NostrClientConfig;
 use fedimint_core::core::{Decoder, ModuleInstanceId, ModuleKind};
@@ -29,6 +30,7 @@ pub const KIND: ModuleKind = ModuleKind::from_static_str("nostr");
 /// Modules are non-compatible with older versions
 pub const CONSENSUS_VERSION: ModuleConsensusVersion = ModuleConsensusVersion::new(0, 0);
 
+// Type definition for FROST
 pub type NostrFrost = Frost<
     CoreWrapper<
         CtVariableCoreWrapper<
@@ -145,6 +147,8 @@ impl fmt::Display for NostrConsensusItem {
     }
 }
 
+/// Helper function for converting between `PeerId` and scalars
+/// that FROST expects
 pub fn peer_id_to_scalar(peer_id: &PeerId) -> schnorr_fun::fun::Scalar<Public> {
     let id = (peer_id.to_usize() + 1) as u32;
     schnorr_fun::fun::Scalar::from_non_zero_u32(
@@ -154,7 +158,13 @@ pub fn peer_id_to_scalar(peer_id: &PeerId) -> schnorr_fun::fun::Scalar<Public> {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Deserialize)]
-pub struct NonceKeyPair(pub schnorr_fun::musig::NonceKeyPair);
+pub struct NonceKeyPair(schnorr_fun::musig::NonceKeyPair);
+
+impl NonceKeyPair {
+    pub fn new(nonce: schnorr_fun::musig::NonceKeyPair) -> NonceKeyPair {
+        NonceKeyPair(nonce)
+    }
+}
 
 impl Hash for NonceKeyPair {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -192,6 +202,14 @@ impl Decodable for NonceKeyPair {
     }
 }
 
+impl Deref for NonceKeyPair {
+    type Target = schnorr_fun::musig::NonceKeyPair;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct UnsignedEvent(pub NdkUnsignedEvent);
 
@@ -215,7 +233,9 @@ impl Decodable for UnsignedEvent {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+/// Wrapper type for nostr's event id that. Needed for implementing
+/// Encodable/Decodable
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Copy)]
 pub struct NostrEventId(pub EventId);
 
 impl Encodable for NostrEventId {
