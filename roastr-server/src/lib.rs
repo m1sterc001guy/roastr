@@ -4,7 +4,7 @@ use std::ops::Deref;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use db::{
-    NonceKey, NonceKeyPrefix, SessionNonceKey, SignatureShareKeyPrefix, SigningSessionKeyPrefix,
+    NonceKey, NoncePeerPrefix, SessionNonceKey, SessionNoncePrefix, SignatureShareEventPrefix,
 };
 use fedimint_core::config::{
     ConfigGenModuleParams, DkgResult, ServerModuleConfig, ServerModuleConsensusConfig,
@@ -19,7 +19,7 @@ use fedimint_core::module::{
     SupportedModuleApiVersions, TransactionItemAmount,
 };
 use fedimint_core::server::DynServerModule;
-use fedimint_core::{OutPoint, PeerId, ServerModule};
+use fedimint_core::{push_db_pair_items, OutPoint, PeerId, ServerModule};
 use fedimint_server::config::distributedgen::PeerHandleOps;
 use futures::StreamExt;
 use itertools::Itertools;
@@ -39,9 +39,10 @@ use roastr_common::{
 };
 use schnorr_fun::fun::poly;
 use schnorr_fun::Message;
+use strum::IntoEnumIterator;
 use tracing::info;
 
-use crate::db::{SessionNonces, SignatureShareKey};
+use crate::db::{DbKeyPrefix, NoncePrefix, SessionNonces, SignatureShareKey, SignatureSharePrefix};
 
 mod db;
 
@@ -59,10 +60,43 @@ impl ModuleInit for RoastrInit {
     /// Dumps all database items for debugging
     async fn dump_database(
         &self,
-        _dbtx: &mut DatabaseTransaction<'_>,
-        _prefix_names: Vec<String>,
+        dbtx: &mut DatabaseTransaction<'_>,
+        prefix_names: Vec<String>,
     ) -> Box<dyn Iterator<Item = (String, Box<dyn erased_serde::Serialize + Send>)> + '_> {
-        todo!()
+        let mut items: BTreeMap<String, Box<dyn erased_serde::Serialize + Send>> = BTreeMap::new();
+        let filtered_prefixes = DbKeyPrefix::iter().filter(|f| {
+            prefix_names.is_empty() || prefix_names.contains(&f.to_string().to_lowercase())
+        });
+
+        for table in filtered_prefixes {
+            match table {
+                DbKeyPrefix::Nonce => {
+                    push_db_pair_items!(dbtx, NoncePrefix, NonceKey, (), items, "Nonces");
+                }
+                DbKeyPrefix::SessionNonces => {
+                    push_db_pair_items!(
+                        dbtx,
+                        SessionNoncePrefix,
+                        SessionNonceKey,
+                        SessionNonces,
+                        items,
+                        "Session Nonces"
+                    );
+                }
+                DbKeyPrefix::SignatureShare => {
+                    push_db_pair_items!(
+                        dbtx,
+                        SignatureSharePrefix,
+                        SignatureShareKey,
+                        SignatureShare,
+                        items,
+                        "Signature Share"
+                    );
+                }
+            }
+        }
+
+        Box::new(items.into_iter())
     }
 }
 
@@ -282,7 +316,7 @@ impl ServerModule for Roastr {
         // Query the database to see if we have enough nonces
         let my_peer_id = self.cfg.private.my_peer_id;
         let nonces = dbtx
-            .find_by_prefix(&NonceKeyPrefix {
+            .find_by_prefix(&NoncePeerPrefix {
                 peer_id: my_peer_id,
             })
             .await
@@ -302,7 +336,7 @@ impl ServerModule for Roastr {
 
         // Query for signing sessions that have no nonces selected
         let signing_sessions = dbtx
-            .find_by_prefix(&SigningSessionKeyPrefix)
+            .find_by_prefix(&SessionNoncePrefix)
             .await
             .collect::<Vec<_>>()
             .await;
@@ -330,7 +364,7 @@ impl ServerModule for Roastr {
             RoastrConsensusItem::Nonce(nonce) => {
                 // Check if we already have enough nonces for this peer
                 let nonces = dbtx
-                    .find_by_prefix(&NonceKeyPrefix { peer_id })
+                    .find_by_prefix(&NoncePeerPrefix { peer_id })
                     .await
                     .collect::<Vec<_>>()
                     .await;
@@ -471,7 +505,7 @@ impl ServerModule for Roastr {
                     let mut dbtx = context.dbtx();
 
                     let signatures = dbtx
-                        .find_by_prefix(&SignatureShareKeyPrefix { event_id })
+                        .find_by_prefix(&SignatureShareEventPrefix { event_id })
                         .await
                         .map(|(key, sig_share)| {
                             (key.signing_session.to_string(), sig_share)
@@ -500,7 +534,7 @@ impl Roastr {
         event_id: EventId,
     ) -> Option<UnsignedEvent> {
         let signature = dbtx
-            .find_by_prefix(&SignatureShareKeyPrefix { event_id })
+            .find_by_prefix(&SignatureShareEventPrefix { event_id })
             .await
             .next()
             .await;
@@ -582,7 +616,7 @@ impl Roastr {
         while let Some(peer_id) = peers_iter.next() {
             // Always use the first available nonce for the peer
             let (nonce_key, _) = match dbtx
-                .find_by_prefix(&NonceKeyPrefix { peer_id })
+                .find_by_prefix(&NoncePeerPrefix { peer_id })
                 .await
                 .next()
                 .await

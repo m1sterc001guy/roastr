@@ -14,7 +14,7 @@ use fedimint_client::module::{ClientModule, IClientModule};
 use fedimint_client::sm::{Context, DynState, State};
 use fedimint_client::DynGlobalClientContext;
 use fedimint_core::api::{DynModuleApi, FederationApiExt};
-use fedimint_core::core::{Decoder, IntoDynInstance, ModuleInstanceId};
+use fedimint_core::core::{Decoder, IntoDynInstance, ModuleInstanceId, OperationId};
 use fedimint_core::db::{DatabaseTransaction, DatabaseVersion};
 use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::module::{
@@ -319,6 +319,6 @@ impl State for RoastrClientStateMachine {
     }
 
     fn operation_id(&self) -> fedimint_core::core::OperationId {
-        todo!()
+        OperationId::new_random()
     }
 }

@@ -27,13 +27,20 @@ pub struct NonceKey {
 }
 
 #[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize)]
-pub struct NonceKeyPrefix {
+pub struct NoncePrefix;
+
+#[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize)]
+pub struct NoncePeerPrefix {
     pub peer_id: PeerId,
 }
 
 impl_db_record!(key = NonceKey, value = (), db_prefix = DbKeyPrefix::Nonce);
 
-impl_db_lookup!(key = NonceKey, query_prefix = NonceKeyPrefix);
+impl_db_lookup!(
+    key = NonceKey,
+    query_prefix = NoncePrefix,
+    query_prefix = NoncePeerPrefix
+);
 
 #[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct SessionNonceKey {
@@ -57,7 +64,7 @@ impl SessionNonces {
 }
 
 #[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize)]
-pub struct SigningSessionKeyPrefix;
+pub struct SessionNoncePrefix;
 
 impl_db_record!(
     key = SessionNonceKey,
@@ -65,10 +72,7 @@ impl_db_record!(
     db_prefix = DbKeyPrefix::SessionNonces
 );
 
-impl_db_lookup!(
-    key = SessionNonceKey,
-    query_prefix = SigningSessionKeyPrefix
-);
+impl_db_lookup!(key = SessionNonceKey, query_prefix = SessionNoncePrefix);
 
 #[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct SignatureShareKey {
@@ -77,7 +81,10 @@ pub struct SignatureShareKey {
 }
 
 #[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct SignatureShareKeyPrefix {
+pub struct SignatureSharePrefix;
+
+#[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct SignatureShareEventPrefix {
     pub event_id: EventId,
 }
 
@@ -89,5 +96,6 @@ impl_db_record!(
 
 impl_db_lookup!(
     key = SignatureShareKey,
-    query_prefix = SignatureShareKeyPrefix
+    query_prefix = SignatureSharePrefix,
+    query_prefix = SignatureShareEventPrefix
 );
