@@ -1,5 +1,5 @@
 [package]
-name = "nostr-tests"
+name = "roastr-tests"
 version = "0.0.1"
 authors = ["m1sterc001guy"]
 edition = "2021"
@@ -8,16 +8,16 @@ license = "MIT"
 publish = false
 
 [[test]]
-name = "nostr_tests"
+name = "roastr_tests"
 path = "tests/tests.rs"
 
 [dependencies]
 anyhow = "1.0.66"
 fedimint-client = { workspace = true }
 fedimint-core = { workspace = true }
-nostr-client = { path = "../nostr-client" }
-nostr-common = { path = "../nostr-common" }
-nostr-server = { path = "../nostr-server" }
+roastr-client = { path = "../roastr-client" }
+roastr-common = { path = "../roastr-common" }
+roastr-server = { path = "../roastr-server" }
 fedimint-logging = { workspace = true }
 fedimint-server = { workspace = true }
 fedimint-testing = { workspace = true }

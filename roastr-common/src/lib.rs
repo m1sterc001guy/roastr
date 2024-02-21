@@ -5,14 +5,14 @@ use std::num::NonZeroU32;
 use std::ops::Deref;
 use std::str::FromStr;
 
-use config::NostrClientConfig;
+use config::RoastrClientConfig;
 use fedimint_core::core::{Decoder, ModuleInstanceId, ModuleKind};
 use fedimint_core::encoding::{Decodable, DecodeError, Encodable};
 use fedimint_core::module::{CommonModuleInit, ModuleCommon, ModuleConsensusVersion};
 use fedimint_core::{plugin_types_trait_impl_common, PeerId};
 use nostr_sdk::{EventId as NdkEventId, UnsignedEvent as NdkUnsignedEvent};
 use rand::rngs::OsRng;
-use schnorr_fun::frost::{EncodedFrostKey, Frost};
+use schnorr_fun::frost::EncodedFrostKey;
 use schnorr_fun::fun::marker::{NonZero, Public, Secret, Zero};
 use schnorr_fun::nonce::{GlobalRng, Synthetic};
 use serde::{Deserialize, Serialize};
@@ -25,13 +25,13 @@ pub mod config;
 pub mod endpoint_constants;
 
 /// Unique name for this module
-pub const KIND: ModuleKind = ModuleKind::from_static_str("nostr");
+pub const KIND: ModuleKind = ModuleKind::from_static_str("roastr");
 
 /// Modules are non-compatible with older versions
 pub const CONSENSUS_VERSION: ModuleConsensusVersion = ModuleConsensusVersion::new(0, 0);
 
 // Type definition for FROST
-pub type NostrFrost = Frost<
+pub type Frost = schnorr_fun::frost::Frost<
     CoreWrapper<
         CtVariableCoreWrapper<
             Sha256VarCore,
@@ -52,98 +52,99 @@ pub type NostrFrost = Frost<
 >;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Encodable, Decodable)]
-pub enum NostrConsensusItem {
+pub enum RoastrConsensusItem {
     Nonce(NonceKeyPair),
     SigningSession((UnsignedEvent, SigningSession)),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize, Serialize, Encodable, Decodable)]
-pub struct NostrInput;
+pub struct RoastrInput;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize, Serialize, Encodable, Decodable)]
-pub struct NostrOutput;
+pub struct RoastrOutput;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize, Serialize, Encodable, Decodable)]
-pub struct NostrOutcome;
+pub struct RoastrOutcome;
 
 /// Errors that might be returned by the server
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Error, Encodable, Decodable)]
-pub enum NostrInputError {
+pub enum RoastrInputError {
     InvalidOperation(String),
 }
 
-impl fmt::Display for NostrInputError {
+impl fmt::Display for RoastrInputError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NostrInputError::InvalidOperation(msg) => write!(f, "InvalidOperation: {msg}"),
+            RoastrInputError::InvalidOperation(msg) => write!(f, "InvalidOperation: {msg}"),
         }
     }
 }
 
 /// Errors that might be returned by the server
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Error, Encodable, Decodable)]
-pub enum NostrOutputError {
+pub enum RoastrOutputError {
     InvalidOperation(String),
 }
 
-impl fmt::Display for NostrOutputError {
+impl fmt::Display for RoastrOutputError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            NostrOutputError::InvalidOperation(msg) => write!(f, "InvalidOperation: {msg}"),
+            RoastrOutputError::InvalidOperation(msg) => write!(f, "InvalidOperation: {msg}"),
         }
     }
 }
 
 /// Contains the types defined above
-pub struct NostrModuleTypes;
+pub struct RoastrModuleTypes;
 
 // Wire together the types for this module
 plugin_types_trait_impl_common!(
-    NostrModuleTypes,
-    NostrClientConfig,
-    NostrInput,
-    NostrOutput,
-    NostrOutcome,
-    NostrConsensusItem,
-    NostrInputError,
-    NostrOutputError
+    RoastrModuleTypes,
+    RoastrClientConfig,
+    RoastrInput,
+    RoastrOutput,
+    RoastrOutcome,
+    RoastrConsensusItem,
+    RoastrInputError,
+    RoastrOutputError
 );
 
 #[derive(Debug)]
-pub struct NostrCommonInit;
+pub struct RoastrCommonInit;
 
-impl CommonModuleInit for NostrCommonInit {
+impl CommonModuleInit for RoastrCommonInit {
     const CONSENSUS_VERSION: ModuleConsensusVersion = CONSENSUS_VERSION;
     const KIND: ModuleKind = KIND;
 
-    type ClientConfig = NostrClientConfig;
+    type ClientConfig = RoastrClientConfig;
 
     fn decoder() -> Decoder {
-        NostrModuleTypes::decoder_builder().build()
+        RoastrModuleTypes::decoder_builder().build()
     }
 }
 
-impl fmt::Display for NostrInput {
+impl fmt::Display for RoastrInput {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "NostrInput")
+        write!(f, "RoastrInput")
     }
 }
 
-impl fmt::Display for NostrOutput {
+impl fmt::Display for RoastrOutput {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "NostrOutput")
+        write!(f, "RoastrOutput")
     }
 }
 
-impl fmt::Display for NostrOutcome {
+impl fmt::Display for RoastrOutcome {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "NostrOutputOutcome")
+        write!(f, "RoastrOutcome")
     }
 }
 
-impl fmt::Display for NostrConsensusItem {
+// TODO: Implement this
+impl fmt::Display for RoastrConsensusItem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "NostrConsensusItem")
+        write!(f, "RoastrConsensusItem")
     }
 }
 
@@ -460,15 +461,15 @@ impl Deref for Signature {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub struct NostrFrostKey(EncodedFrostKey);
+pub struct RoastrKey(EncodedFrostKey);
 
-impl NostrFrostKey {
-    pub fn new(key: EncodedFrostKey) -> NostrFrostKey {
-        NostrFrostKey(key)
+impl RoastrKey {
+    pub fn new(key: EncodedFrostKey) -> RoastrKey {
+        RoastrKey(key)
     }
 }
 
-impl Encodable for NostrFrostKey {
+impl Encodable for RoastrKey {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
         let frost_key_bytes = bincode2::serialize(&self.0).map_err(|_| {
             std::io::Error::new(ErrorKind::Other, "Error serializing FrostKey".to_string())
@@ -478,7 +479,7 @@ impl Encodable for NostrFrostKey {
     }
 }
 
-impl Decodable for NostrFrostKey {
+impl Decodable for RoastrKey {
     fn consensus_decode<R: std::io::Read>(
         r: &mut R,
         _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
@@ -489,11 +490,11 @@ impl Decodable for NostrFrostKey {
             .map_err(|_| DecodeError::from_str("Failed to read FrostKey bytes"))?;
         let frost_key = bincode2::deserialize(&frost_key_bytes)
             .map_err(|_| DecodeError::from_str("Failed to deserialize FrostKey"))?;
-        Ok(NostrFrostKey(frost_key))
+        Ok(RoastrKey(frost_key))
     }
 }
 
-impl Hash for NostrFrostKey {
+impl Hash for RoastrKey {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         let mut frost_key_bytes = bincode2::serialize(&self.0)
             .map_err(|_| {
@@ -504,7 +505,7 @@ impl Hash for NostrFrostKey {
     }
 }
 
-impl Deref for NostrFrostKey {
+impl Deref for RoastrKey {
     type Target = EncodedFrostKey;
 
     fn deref(&self) -> &Self::Target {

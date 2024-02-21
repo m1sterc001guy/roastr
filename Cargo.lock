@@ -1326,16 +1326,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fedimint-cli-nostr"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "fedimint-cli",
- "nostr-client",
- "tokio",
-]
-
-[[package]]
 name = "fedimint-client"
 version = "0.3.0-alpha"
 dependencies = [
@@ -2072,20 +2062,6 @@ dependencies = [
  "tower",
  "tracing",
  "url",
-]
-
-[[package]]
-name = "fedimintd-nostr"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "fedimintd",
- "nostr-common",
- "nostr-server",
- "rand",
- "schnorr_fun",
- "sha2",
- "tokio",
 ]
 
 [[package]]
@@ -3324,48 +3300,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nostr-client"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "async-trait",
- "erased-serde",
- "fedimint-client",
- "fedimint-core",
- "futures",
- "nostr-common",
- "nostr-sdk",
- "rand",
- "schnorr_fun",
- "secp256k1 0.24.3",
- "serde",
- "serde_json",
- "sha2",
- "strum",
- "strum_macros",
- "thiserror",
- "threshold_crypto",
- "tracing",
-]
-
-[[package]]
-name = "nostr-common"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "async-trait",
- "bincode2",
- "fedimint-core",
- "nostr-sdk",
- "rand",
- "schnorr_fun",
- "serde",
- "sha2",
- "thiserror",
- "tracing",
-]
-
-[[package]]
 name = "nostr-sdk"
 version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3395,49 +3329,6 @@ dependencies = [
  "url-fork",
  "webpki-roots 0.25.2",
  "ws_stream_wasm",
-]
-
-[[package]]
-name = "nostr-server"
-version = "0.2.1"
-dependencies = [
- "anyhow",
- "async-trait",
- "erased-serde",
- "fedimint-core",
- "fedimint-server",
- "futures",
- "itertools 0.10.5",
- "nostr-common",
- "nostr-sdk",
- "rand",
- "schnorr_fun",
- "serde",
- "serde_json",
- "sha2",
- "strum",
- "strum_macros",
- "tracing",
-]
-
-[[package]]
-name = "nostr-tests"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "fedimint-client",
- "fedimint-core",
- "fedimint-logging",
- "fedimint-server",
- "fedimint-testing",
- "nostr-client",
- "nostr-common",
- "nostr-server",
- "rand",
- "secp256k1 0.24.3",
- "threshold_crypto",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -4112,6 +4003,115 @@ dependencies = [
  "spin 0.9.8",
  "untrusted 0.9.0",
  "windows-sys",
+]
+
+[[package]]
+name = "roastr"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "fedimintd",
+ "rand",
+ "roastr-common",
+ "roastr-server",
+ "schnorr_fun",
+ "sha2",
+ "tokio",
+]
+
+[[package]]
+name = "roastr-cli"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "fedimint-cli",
+ "roastr-client",
+ "tokio",
+]
+
+[[package]]
+name = "roastr-client"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "erased-serde",
+ "fedimint-client",
+ "fedimint-core",
+ "futures",
+ "nostr-sdk",
+ "rand",
+ "roastr-common",
+ "schnorr_fun",
+ "secp256k1 0.24.3",
+ "serde",
+ "serde_json",
+ "sha2",
+ "strum",
+ "strum_macros",
+ "thiserror",
+ "threshold_crypto",
+ "tracing",
+]
+
+[[package]]
+name = "roastr-common"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bincode2",
+ "fedimint-core",
+ "nostr-sdk",
+ "rand",
+ "schnorr_fun",
+ "serde",
+ "sha2",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "roastr-server"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "erased-serde",
+ "fedimint-core",
+ "fedimint-server",
+ "futures",
+ "itertools 0.10.5",
+ "nostr-sdk",
+ "rand",
+ "roastr-common",
+ "schnorr_fun",
+ "serde",
+ "serde_json",
+ "sha2",
+ "strum",
+ "strum_macros",
+ "tracing",
+]
+
+[[package]]
+name = "roastr-tests"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "fedimint-client",
+ "fedimint-core",
+ "fedimint-logging",
+ "fedimint-server",
+ "fedimint-testing",
+ "rand",
+ "roastr-client",
+ "roastr-common",
+ "roastr-server",
+ "secp256k1 0.24.3",
+ "threshold_crypto",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

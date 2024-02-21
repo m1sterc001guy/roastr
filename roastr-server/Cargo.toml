@@ -1,32 +1,33 @@
 [package]
-name = "nostr-client"
-version = "0.0.1"
+name = "roastr-server"
+version = "0.2.1"
 authors = ["m1sterc001guy"]
 edition = "2021"
 description = "A federated nostr client."
 license = "MIT"
 
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "tokio_unstable"]
+
 [lib]
-name = "nostr_client"
+name = "roastr_server"
 path = "src/lib.rs"
 
 [dependencies]
 async-trait = "0.1.73"
 anyhow = "1.0.66"
-nostr-common ={ path = "../nostr-common" }
-fedimint-client = { workspace = true }
-fedimint-core ={ workspace = true }
-futures = "0.3"
+fedimint-core = { workspace = true }
+fedimint-server = { workspace = true }
+futures = "0.3.28"
+itertools = "0.10.0"
 erased-serde = "0.3"
 nostr-sdk = "0.24.0"
-rand = "0.8.5"
-sha2 = "0.10"
-secp256k1 = "0.24.2"
+rand = "0.8"
+roastr-common = { path = "../roastr-common" }
 schnorr_fun = { version = "0.10.0", features = [ "serde", "bincode" ]}
-serde = {version = "1.0.149", features = [ "derive" ] }
+sha2 = "0.10"
+serde = { version = "1.0.149", features = [ "derive" ] }
 serde_json = { version = "1.0.91", features = ["preserve_order"] }
 strum = "0.24"
 strum_macros = "0.24"
 tracing = "0.1.37"
-thiserror = "1.0.39"
-threshold_crypto = { workspace = true }

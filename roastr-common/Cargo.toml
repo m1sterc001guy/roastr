@@ -1,5 +1,5 @@
 [package]
-name = "nostr-common"
+name = "roastr-common"
 version = "0.0.1"
 authors = ["m1sterc001guy"]
 edition = "2021"
@@ -10,7 +10,7 @@ license = "MIT"
 rustc-args = ["--cfg", "tokio_unstable"]
 
 [lib]
-name = "nostr_common"
+name = "roastr_common"
 path = "src/lib.rs"
 
 [dependencies]

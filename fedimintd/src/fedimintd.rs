@@ -7,13 +7,13 @@ async fn main() -> anyhow::Result<()> {
     // TODO: Fix this version hash
     Fedimintd::new("e1efadacfa61f0e5f898a217bdc48ea781702000")?
         .with_default_modules()
-        .with_module(nostr_server::NostrInit {
+        .with_module(roastr_server::RoastrInit {
             frost: frost::new_with_synthetic_nonces::<Sha256, rand::rngs::OsRng>(),
         })
         .with_extra_module_inits_params(
             3,
-            nostr_common::KIND,
-            nostr_common::config::NostrGenParams::default(),
+            roastr_common::KIND,
+            roastr_common::config::RoastrGenParams::default(),
         )
         .run()
         .await

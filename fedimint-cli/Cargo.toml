@@ -1,5 +1,5 @@
 [package]
-name = "fedimint-cli-nostr"
+name = "roastr-cli"
 version = "0.0.1"
 authors = ["m1sterc001guy"]
 edition = "2021"
@@ -12,5 +12,5 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0.66"
 fedimint-cli = { workspace = true }
-nostr-client = { path = "../nostr-client" }
+roastr-client = { path = "../roastr-client" }
 tokio = { version = "1.25.0", features = ["full", "tracing"] }

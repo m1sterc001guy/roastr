@@ -2,10 +2,10 @@
 members = [
     "fedimintd",
     "fedimint-cli",
-    "nostr-common",
-    "nostr-client",
-    "nostr-server",
-    "nostr-tests",
+    "roastr-common",
+    "roastr-client",
+    "roastr-server",
+    "roastr-tests",
 ]
 resolver = "2"
 

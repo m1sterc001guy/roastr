@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::{impl_db_lookup, impl_db_record, PeerId};
-use nostr_common::{EventId, NonceKeyPair, SignatureShare, SigningSession, UnsignedEvent};
+use roastr_common::{EventId, NonceKeyPair, SignatureShare, SigningSession, UnsignedEvent};
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 

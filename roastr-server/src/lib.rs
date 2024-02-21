@@ -23,20 +23,20 @@ use fedimint_core::{OutPoint, PeerId, ServerModule};
 use fedimint_server::config::distributedgen::PeerHandleOps;
 use futures::StreamExt;
 use itertools::Itertools;
-use nostr_common::config::{
-    NostrClientConfig, NostrConfig, NostrConfigConsensus, NostrConfigLocal, NostrConfigPrivate,
-    NostrGenParams,
+use rand::rngs::OsRng;
+use roastr_common::config::{
+    RoastrClientConfig, RoastrConfig, RoastrConfigConsensus, RoastrConfigLocal,
+    RoastrConfigPrivate, RoastrGenParams,
 };
-use nostr_common::endpoint_constants::{
+use roastr_common::endpoint_constants::{
     CREATE_NOTE_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
 };
-use nostr_common::{
-    peer_id_to_scalar, EventId, NonceKeyPair, NostrCommonInit, NostrConsensusItem, NostrFrost,
-    NostrFrostKey, NostrInput, NostrInputError, NostrModuleTypes, NostrOutcome, NostrOutput,
-    NostrOutputError, Point, PublicScalar, SecretScalar, Signature, SignatureShare, SigningSession,
-    UnsignedEvent, CONSENSUS_VERSION, KIND,
+use roastr_common::{
+    peer_id_to_scalar, EventId, Frost, NonceKeyPair, Point, PublicScalar, RoastrCommonInit,
+    RoastrConsensusItem, RoastrInput, RoastrInputError, RoastrKey, RoastrModuleTypes,
+    RoastrOutcome, RoastrOutput, RoastrOutputError, SecretScalar, Signature, SignatureShare,
+    SigningSession, UnsignedEvent, CONSENSUS_VERSION, KIND,
 };
-use rand::rngs::OsRng;
 use schnorr_fun::fun::poly;
 use schnorr_fun::Message;
 use tracing::info;
@@ -47,13 +47,13 @@ mod db;
 
 /// Generates the module
 #[derive(Clone)]
-pub struct NostrInit {
-    pub frost: NostrFrost,
+pub struct RoastrInit {
+    pub frost: Frost,
 }
 
 #[async_trait]
-impl ModuleInit for NostrInit {
-    type Common = NostrCommonInit;
+impl ModuleInit for RoastrInit {
+    type Common = RoastrCommonInit;
     const DATABASE_VERSION: DatabaseVersion = DatabaseVersion(1);
 
     /// Dumps all database items for debugging
@@ -66,16 +66,16 @@ impl ModuleInit for NostrInit {
     }
 }
 
-impl std::fmt::Debug for NostrInit {
+impl std::fmt::Debug for RoastrInit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("NostrInit").finish()
+        f.debug_struct("RoastrInit").finish()
     }
 }
 
 /// Implementation of server module non-consensus functions
 #[async_trait]
-impl ServerModuleInit for NostrInit {
-    type Params = NostrGenParams;
+impl ServerModuleInit for RoastrInit {
+    type Params = RoastrGenParams;
 
     /// Returns the version of this module
     fn versions(&self, _core: CoreConsensusVersion) -> &[ModuleConsensusVersion] {
@@ -88,7 +88,7 @@ impl ServerModuleInit for NostrInit {
 
     /// Initialize the module
     async fn init(&self, args: &ServerModuleInitArgs<Self>) -> anyhow::Result<DynServerModule> {
-        Ok(Nostr::new(args.cfg().to_typed()?, self.frost.clone()).into())
+        Ok(Roastr::new(args.cfg().to_typed()?, self.frost.clone()).into())
     }
 
     /// Generates configs for all peers in a trusted manner for testing
@@ -103,10 +103,10 @@ impl ServerModuleInit for NostrInit {
         peers
             .iter()
             .map(|&peer| {
-                let config = NostrConfig {
-                    local: NostrConfigLocal {},
-                    private: NostrConfigPrivate,
-                    consensus: NostrConfigConsensus {
+                let config = RoastrConfig {
+                    local: RoastrConfigLocal {},
+                    private: RoastrConfigPrivate,
+                    consensus: RoastrConfigConsensus {
                         threshold: params.consensus.threshold,
                     },
                 };
@@ -220,15 +220,15 @@ impl ServerModuleInit for NostrInit {
 
         let all_peers = BTreeSet::from_iter(peers.peer_ids().iter().cloned());
 
-        Ok(NostrConfig {
-            local: NostrConfigLocal,
-            private: NostrConfigPrivate {
+        Ok(RoastrConfig {
+            local: RoastrConfigLocal,
+            private: RoastrConfigPrivate {
                 my_peer_id: peers.our_id,
                 my_secret_share,
             },
-            consensus: NostrConfigConsensus {
+            consensus: RoastrConfigConsensus {
                 num_nonces: params.consensus.num_nonces,
-                frost_key: NostrFrostKey::new(frost_key.into()),
+                frost_key: RoastrKey::new(frost_key.into()),
                 all_peers,
             },
         }
@@ -239,9 +239,9 @@ impl ServerModuleInit for NostrInit {
     fn get_client_config(
         &self,
         config: &ServerModuleConsensusConfig,
-    ) -> anyhow::Result<NostrClientConfig> {
-        let config = NostrConfigConsensus::from_erased(config)?;
-        Ok(NostrClientConfig {
+    ) -> anyhow::Result<RoastrClientConfig> {
+        let config = RoastrConfigConsensus::from_erased(config)?;
+        Ok(RoastrClientConfig {
             frost_key: config.frost_key,
         })
     }
@@ -255,26 +255,26 @@ impl ServerModuleInit for NostrInit {
     }
 }
 
-pub struct Nostr {
-    cfg: NostrConfig,
-    frost: NostrFrost,
+pub struct Roastr {
+    cfg: RoastrConfig,
+    frost: Frost,
 }
 
-impl std::fmt::Debug for Nostr {
+impl std::fmt::Debug for Roastr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Nostr").field("cfg", &self.cfg).finish()
+        f.debug_struct("Roastr").field("cfg", &self.cfg).finish()
     }
 }
 
 #[async_trait]
-impl ServerModule for Nostr {
-    type Common = NostrModuleTypes;
-    type Init = NostrInit;
+impl ServerModule for Roastr {
+    type Common = RoastrModuleTypes;
+    type Init = RoastrInit;
 
     async fn consensus_proposal(
         &self,
         dbtx: &mut DatabaseTransaction<'_>,
-    ) -> Vec<NostrConsensusItem> {
+    ) -> Vec<RoastrConsensusItem> {
         let num_nonces = self.cfg.consensus.num_nonces;
 
         let mut consensus_items = Vec::new();
@@ -297,7 +297,7 @@ impl ServerModule for Nostr {
             let nonce = NonceKeyPair::new(schnorr_fun::musig::NonceKeyPair::random(
                 &mut rand::rngs::OsRng,
             ));
-            consensus_items.push(NostrConsensusItem::Nonce(nonce));
+            consensus_items.push(RoastrConsensusItem::Nonce(nonce));
         }
 
         // Query for signing sessions that have no nonces selected
@@ -310,7 +310,7 @@ impl ServerModule for Nostr {
             // An empty signing session indicates that it was requested from this peer and
             // should be broadcasted to the other peers.
             if session.nonces.is_empty() {
-                consensus_items.push(NostrConsensusItem::SigningSession((
+                consensus_items.push(RoastrConsensusItem::SigningSession((
                     session.unsigned_event,
                     session_key.signing_session,
                 )));
@@ -323,11 +323,11 @@ impl ServerModule for Nostr {
     async fn process_consensus_item<'a, 'b>(
         &'a self,
         dbtx: &mut DatabaseTransaction<'b>,
-        consensus_item: NostrConsensusItem,
+        consensus_item: RoastrConsensusItem,
         peer_id: PeerId,
     ) -> anyhow::Result<()> {
         match consensus_item {
-            NostrConsensusItem::Nonce(nonce) => {
+            RoastrConsensusItem::Nonce(nonce) => {
                 // Check if we already have enough nonces for this peer
                 let nonces = dbtx
                     .find_by_prefix(&NonceKeyPrefix { peer_id })
@@ -344,7 +344,7 @@ impl ServerModule for Nostr {
                         .await;
                 }
             }
-            NostrConsensusItem::SigningSession((unsigned_event, signing_session)) => {
+            RoastrConsensusItem::SigningSession((unsigned_event, signing_session)) => {
                 // Deterministically dequeue the nonces from the pre-preared list and assign
                 // them to this signing session
                 let nonces = self.dequeue_nonces(dbtx, &signing_session).await?;
@@ -383,41 +383,41 @@ impl ServerModule for Nostr {
         Ok(())
     }
 
-    /// Nostr module does not support transactions so no inputs need to be
+    /// Roastr module does not support transactions so no inputs need to be
     /// processed.
     async fn process_input<'a, 'b, 'c>(
         &'a self,
         _dbtx: &mut DatabaseTransaction<'c>,
-        _input: &'b NostrInput,
-    ) -> Result<InputMeta, NostrInputError> {
-        Err(NostrInputError::InvalidOperation(
-            "Nostr module does not process inputs".to_string(),
+        _input: &'b RoastrInput,
+    ) -> Result<InputMeta, RoastrInputError> {
+        Err(RoastrInputError::InvalidOperation(
+            "Roastr module does not process inputs".to_string(),
         ))
     }
 
-    /// Nostr module does not support transactions so no outputs need to be
+    /// Roastr module does not support transactions so no outputs need to be
     /// processed.
     async fn process_output<'a, 'b>(
         &'a self,
         _dbtx: &mut DatabaseTransaction<'b>,
-        _output: &'a NostrOutput,
+        _output: &'a RoastrOutput,
         _out_point: OutPoint,
-    ) -> Result<TransactionItemAmount, NostrOutputError> {
-        Err(NostrOutputError::InvalidOperation(
-            "Nostr module does not process output".to_string(),
+    ) -> Result<TransactionItemAmount, RoastrOutputError> {
+        Err(RoastrOutputError::InvalidOperation(
+            "Roastr module does not process output".to_string(),
         ))
     }
 
-    /// Nostr module does not support transactions so there are no outputs.
+    /// Roastr module does not support transactions so there are no outputs.
     async fn output_status(
         &self,
         _dbtx: &mut DatabaseTransaction<'_>,
         _out_point: OutPoint,
-    ) -> Option<NostrOutcome> {
+    ) -> Option<RoastrOutcome> {
         None
     }
 
-    /// Nostr module does not support transactions so auditing is not necessary
+    /// Roastr module does not support transactions so auditing is not necessary
     async fn audit(
         &self,
         _dbtx: &mut DatabaseTransaction<'_>,
@@ -431,7 +431,7 @@ impl ServerModule for Nostr {
             api_endpoint! {
                 CREATE_NOTE_ENDPOINT,
                 ApiVersion::new(0, 0),
-                async |module: &Nostr, context, unsigned_event: UnsignedEvent| -> () {
+                async |module: &Roastr, context, unsigned_event: UnsignedEvent| -> () {
                     //check_auth(context)?;
 
                     let mut dbtx = context.dbtx();
@@ -449,7 +449,7 @@ impl ServerModule for Nostr {
             api_endpoint! {
                 SIGN_NOTE_ENDPOINT,
                 ApiVersion::new(0, 0),
-                async |module: &Nostr, context, event_id: EventId| -> () {
+                async |module: &Roastr, context, event_id: EventId| -> () {
                     //check_auth(context)?;
 
                     let mut dbtx = context.dbtx();
@@ -466,7 +466,7 @@ impl ServerModule for Nostr {
             api_endpoint! {
                 GET_EVENT_SESSIONS_ENDPOINT,
                 ApiVersion::new(0, 0),
-                async |_module: &Nostr, context, event_id: EventId| -> BTreeMap<String, SignatureShare> {
+                async |_module: &Roastr, context, event_id: EventId| -> BTreeMap<String, SignatureShare> {
 
                     let mut dbtx = context.dbtx();
 
@@ -486,10 +486,9 @@ impl ServerModule for Nostr {
     }
 }
 
-impl Nostr {
-    /// Create new module instance
-    pub fn new(cfg: NostrConfig, frost: NostrFrost) -> Nostr {
-        Nostr { cfg, frost }
+impl Roastr {
+    pub fn new(cfg: RoastrConfig, frost: Frost) -> Roastr {
+        Roastr { cfg, frost }
     }
 
     /// Checks if any signing session exists for the `event_id`. If no session
@@ -667,7 +666,7 @@ struct SigningSessionIter {
 }
 
 impl SigningSessionIter {
-    fn new(peer_id: PeerId, consensus: &NostrConfigConsensus) -> SigningSessionIter {
+    fn new(peer_id: PeerId, consensus: &RoastrConfigConsensus) -> SigningSessionIter {
         let all_peers = consensus.all_peers.clone();
         let threshold = consensus.frost_key.threshold();
         let combination_iter = all_peers

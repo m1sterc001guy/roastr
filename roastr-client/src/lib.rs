@@ -8,12 +8,6 @@ use commands::{
     CREATE_NOTE_COMMAND, GET_EVENT_SESSIONS_COMMAND, HELP_COMMAND, SIGN_NOTE_COMMAND,
     SUPPORTED_COMMANDS,
 };
-use common::endpoint_constants::{
-    CREATE_NOTE_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
-};
-use common::{
-    peer_id_to_scalar, EventId, NostrFrost, NostrFrostKey, SignatureShare, UnsignedEvent,
-};
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
 use fedimint_client::module::{ClientModule, IClientModule};
@@ -28,8 +22,13 @@ use fedimint_core::module::{
 };
 use fedimint_core::query::AllOrDeadline;
 use fedimint_core::{apply, async_trait_maybe_send, NumPeers, PeerId};
-pub use nostr_common as common;
-use nostr_common::{NostrCommonInit, NostrModuleTypes};
+use roastr_common::endpoint_constants::{
+    CREATE_NOTE_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
+};
+use roastr_common::{
+    peer_id_to_scalar, EventId, Frost, RoastrCommonInit, RoastrKey, RoastrModuleTypes,
+    SignatureShare, UnsignedEvent,
+};
 use schnorr_fun::{frost, Message};
 use serde_json::json;
 use sha2::Sha256;
@@ -37,40 +36,41 @@ use sha2::Sha256;
 mod commands;
 mod db;
 
-pub struct NostrClientModule {
-    pub frost_key: NostrFrostKey,
+pub struct RoastrClientModule {
+    pub frost_key: RoastrKey,
     pub module_api: DynModuleApi,
-    pub frost: NostrFrost,
+    pub frost: Frost,
 }
 
-impl std::fmt::Debug for NostrClientModule {
+// TODO: Implement this
+impl std::fmt::Debug for RoastrClientModule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("NostrClientModule").finish()
+        f.debug_struct("RoastrClientModule").finish()
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct NostrClientContext {
+pub struct RoastrClientContext {
     pub decoder: Decoder,
 }
 
-impl Context for NostrClientContext {}
+impl Context for RoastrClientContext {}
 
 #[apply(async_trait_maybe_send!)]
-impl ClientModule for NostrClientModule {
-    type Init = NostrClientInit;
-    type Common = NostrModuleTypes;
+impl ClientModule for RoastrClientModule {
+    type Init = RoastrClientInit;
+    type Common = RoastrModuleTypes;
     type Backup = NoModuleBackup;
-    type ModuleStateMachineContext = NostrClientContext;
-    type States = NostrClientStateMachine;
+    type ModuleStateMachineContext = RoastrClientContext;
+    type States = RoastrClientStateMachine;
 
     fn context(&self) -> Self::ModuleStateMachineContext {
-        NostrClientContext {
+        RoastrClientContext {
             decoder: self.decoder(),
         }
     }
 
-    // Nostr module does not support transactions so `input_amount` is not required
+    // Roastr module does not support transactions so `input_amount` is not required
     fn input_amount(
         &self,
         _input: &<Self::Common as ModuleCommon>::Input,
@@ -78,7 +78,8 @@ impl ClientModule for NostrClientModule {
         None
     }
 
-    // Nostr module does not support transactions so `output_amount` is not required
+    // Roastr module does not support transactions so `output_amount` is not
+    // required
     fn output_amount(
         &self,
         _output: &<Self::Common as ModuleCommon>::Output,
@@ -139,7 +140,7 @@ impl ClientModule for NostrClientModule {
     }
 }
 
-impl NostrClientModule {
+impl RoastrClientModule {
     pub async fn create_note(&self, text: String, peer_id: PeerId) -> anyhow::Result<EventId> {
         let pubkey = self
             .frost_key
@@ -226,7 +227,7 @@ impl NostrClientModule {
     fn create_frost_signature(
         &self,
         shares: BTreeMap<PeerId, SignatureShare>,
-        frost_key: &NostrFrostKey,
+        frost_key: &RoastrKey,
     ) -> schnorr_fun::Signature {
         let xonly_frost_key = frost_key.into_frost_key().into_xonly_key();
         let unsigned_event = shares
@@ -261,11 +262,11 @@ impl NostrClientModule {
 }
 
 #[derive(Debug, Clone)]
-pub struct NostrClientInit;
+pub struct RoastrClientInit;
 
 #[apply(async_trait_maybe_send!)]
-impl fedimint_core::module::ModuleInit for NostrClientInit {
-    type Common = NostrCommonInit;
+impl fedimint_core::module::ModuleInit for RoastrClientInit {
+    type Common = RoastrCommonInit;
     const DATABASE_VERSION: DatabaseVersion = DatabaseVersion(0);
 
     async fn dump_database(
@@ -278,8 +279,8 @@ impl fedimint_core::module::ModuleInit for NostrClientInit {
 }
 
 #[apply(async_trait_maybe_send!)]
-impl ClientModuleInit for NostrClientInit {
-    type Module = NostrClientModule;
+impl ClientModuleInit for RoastrClientInit {
+    type Module = RoastrClientModule;
 
     fn supported_api_versions(&self) -> MultiApiVersion {
         MultiApiVersion::try_from_iter([ApiVersion { major: 0, minor: 0 }])
@@ -287,7 +288,7 @@ impl ClientModuleInit for NostrClientInit {
     }
 
     async fn init(&self, args: &ClientModuleInitArgs<Self>) -> anyhow::Result<Self::Module> {
-        Ok(NostrClientModule {
+        Ok(RoastrClientModule {
             frost_key: args.cfg().frost_key.clone(),
             module_api: args.module_api().clone(),
             frost: frost::new_with_synthetic_nonces::<Sha256, rand::rngs::OsRng>(),
@@ -296,9 +297,9 @@ impl ClientModuleInit for NostrClientInit {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Decodable, Encodable)]
-pub enum NostrClientStateMachine {}
+pub enum RoastrClientStateMachine {}
 
-impl IntoDynInstance for NostrClientStateMachine {
+impl IntoDynInstance for RoastrClientStateMachine {
     type DynType = DynState;
 
     fn into_dyn(self, instance_id: ModuleInstanceId) -> Self::DynType {
@@ -306,8 +307,8 @@ impl IntoDynInstance for NostrClientStateMachine {
     }
 }
 
-impl State for NostrClientStateMachine {
-    type ModuleContext = NostrClientContext;
+impl State for RoastrClientStateMachine {
+    type ModuleContext = RoastrClientContext;
 
     fn transitions(
         &self,
