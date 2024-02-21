@@ -490,10 +490,10 @@ impl Decodable for RoastrKey {
         r: &mut R,
         _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
     ) -> Result<Self, DecodeError> {
-        let mut frost_key_bytes = Vec::new();
-        // TODO: Should use read_exact here instead
-        r.read_to_end(&mut frost_key_bytes)
-            .map_err(|_| DecodeError::from_str("Failed to read FrostKey bytes"))?;
+        // We assume the frost key will be 107 bytes
+        let mut frost_key_bytes: [u8; 107] = [0; 107];
+        r.read_exact(&mut frost_key_bytes)
+            .map_err(|e| DecodeError::from_err(e))?;
         let frost_key = bincode2::deserialize(&frost_key_bytes)
             .map_err(|_| DecodeError::from_str("Failed to deserialize FrostKey"))?;
         Ok(RoastrKey(frost_key))
