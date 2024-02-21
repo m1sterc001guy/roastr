@@ -1,8 +1,9 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::fmt::Display;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use db::{NonceKey, NonceKeyPrefix, SigningSessionKey, SigningSessionKeyPrefix};
+use db::{NonceKey, NonceKeyPrefix, SessionNonceKey, SigningSessionKeyPrefix};
 use fedimint_core::config::{
     ConfigGenModuleParams, DkgResult, ServerModuleConfig, ServerModuleConsensusConfig,
     TypedServerModuleConfig, TypedServerModuleConsensusConfig,
@@ -19,6 +20,7 @@ use fedimint_core::server::DynServerModule;
 use fedimint_core::{OutPoint, PeerId, ServerModule};
 use fedimint_server::config::distributedgen::PeerHandleOps;
 use futures::StreamExt;
+use itertools::Itertools;
 use nostr_common::config::{
     NostrClientConfig, NostrConfig, NostrConfigConsensus, NostrConfigLocal, NostrConfigPrivate,
     NostrFrostKey, NostrGenParams,
@@ -34,7 +36,7 @@ use rand::rngs::OsRng;
 use schnorr_fun::fun::poly;
 use schnorr_fun::Message;
 
-use crate::db::{SignatureShareKey, SigningSession};
+use crate::db::{SessionNonces, SignatureShareKey};
 
 mod db;
 
@@ -195,6 +197,8 @@ impl ServerModuleInit for NostrInit {
             "MyIndex: {my_index} MySecretShare: {my_secret_share} FrostKey: {frost_key:?}"
         );
 
+        let all_peers = BTreeSet::from_iter(peers.peer_ids().iter().cloned());
+
         Ok(NostrConfig {
             local: NostrConfigLocal,
             private: NostrConfigPrivate {
@@ -204,6 +208,7 @@ impl ServerModuleInit for NostrInit {
             consensus: NostrConfigConsensus {
                 num_nonces: params.consensus.num_nonces,
                 frost_key: NostrFrostKey(frost_key.into()),
+                all_peers,
             },
         }
         .to_erased())
@@ -318,11 +323,11 @@ impl ServerModule for Nostr {
                     "Inserting nonces for peers: {peers:?} Heard from PeerId: {peer_id}"
                 );
                 dbtx.insert_entry(
-                    &SigningSessionKey {
+                    &SessionNonceKey {
                         event_id: NostrEventId(unsigned_event.0.id),
                         peers: peers.clone(),
                     },
-                    &SigningSession {
+                    &SessionNonces {
                         nonces: nonces.clone(),
                         unsigned_event: unsigned_event.clone(),
                     },
@@ -390,8 +395,15 @@ impl ServerModule for Nostr {
             api_endpoint! {
                 "create_note",
                 ApiVersion::new(0, 0),
-                async |_module: &Nostr, context, unsigned_event: UnsignedEvent| -> () {
+                async |module: &Nostr, context, unsigned_event: UnsignedEvent| -> () {
                     //check_auth(context)?;
+
+                    let my_peer_id = module.cfg.private.my_peer_id;
+                    tracing::info!("Iterating over all sessions for peer: {my_peer_id}");
+                    let mut sign_session_iter = SigningSessionIter::new(my_peer_id, &module.cfg.consensus);
+                    while let Some(sign_session) = sign_session_iter.next() {
+                        tracing::info!("Sign Session: {sign_session}");
+                    }
 
                     tracing::info!("Received create_note request. Message: {unsigned_event:?}");
                     let mut dbtx = context.dbtx();
@@ -399,7 +411,7 @@ impl ServerModule for Nostr {
                     // Create note will always start new signing sessions
                     // TODO: iterate through all signing sessions
                     let peers: Vec<PeerId> = vec![0.into(), 1.into(), 2.into()];
-                    dbtx.insert_new_entry(&SigningSessionKey { event_id: NostrEventId(unsigned_event.0.id), peers }, &SigningSession::new(unsigned_event)).await;
+                    dbtx.insert_new_entry(&SessionNonceKey { event_id: NostrEventId(unsigned_event.0.id), peers }, &SessionNonces::new(unsigned_event)).await;
 
                     Ok(())
                 }
@@ -472,7 +484,7 @@ impl Nostr {
         event_id: EventId,
     ) -> anyhow::Result<SignatureShare> {
         let signing_session = dbtx
-            .get_value(&SigningSessionKey {
+            .get_value(&SessionNonceKey {
                 peers: peers.clone(),
                 event_id: NostrEventId(event_id),
             })
@@ -582,3 +594,61 @@ impl Nostr {
 }
 
 pub type FrostShare = (BTreeMap<PublicScalar, SecretScalar>, Signature);
+
+#[derive(Debug, Clone)]
+struct SigningSession {
+    selected_peers: BTreeSet<PeerId>,
+}
+
+impl Display for SigningSession {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut sorted = Vec::from_iter(self.selected_peers.clone().into_iter());
+        sorted.sort();
+        let peers_str = sorted
+            .iter()
+            .map(|i| i.to_string())
+            .collect::<Vec<String>>()
+            .join(",");
+        f.write_str(peers_str.as_str())
+    }
+}
+
+impl SigningSession {
+    fn new(peers: Vec<PeerId>) -> SigningSession {
+        SigningSession {
+            selected_peers: BTreeSet::from_iter(peers.into_iter()),
+        }
+    }
+}
+
+struct SigningSessionIter {
+    combination_iter: Box<dyn Iterator<Item = Vec<PeerId>> + Send + Sync>,
+}
+
+impl SigningSessionIter {
+    fn new(peer_id: PeerId, consensus: &NostrConfigConsensus) -> SigningSessionIter {
+        let all_peers = consensus.all_peers.clone();
+        let threshold = consensus.frost_key.0.threshold();
+        let combination_iter = all_peers
+            .into_iter()
+            .combinations(threshold)
+            .into_iter()
+            .filter(move |peers| peers.contains(&peer_id));
+
+        SigningSessionIter {
+            combination_iter: Box::new(combination_iter),
+        }
+    }
+}
+
+impl Iterator for SigningSessionIter {
+    type Item = SigningSession;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(combination) = self.combination_iter.next() {
+            Some(SigningSession::new(combination))
+        } else {
+            None
+        }
+    }
+}

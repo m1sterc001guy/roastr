@@ -36,20 +36,20 @@ impl_db_record!(key = NonceKey, value = (), db_prefix = DbKeyPrefix::Nonce);
 impl_db_lookup!(key = NonceKey, query_prefix = NonceKeyPrefix);
 
 #[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct SigningSessionKey {
+pub struct SessionNonceKey {
     pub peers: Vec<PeerId>,
     pub event_id: NostrEventId,
 }
 
 #[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct SigningSession {
+pub struct SessionNonces {
     pub nonces: BTreeMap<PeerId, NonceKeyPair>,
     pub unsigned_event: UnsignedEvent,
 }
 
-impl SigningSession {
-    pub fn new(unsigned_event: UnsignedEvent) -> SigningSession {
-        SigningSession {
+impl SessionNonces {
+    pub fn new(unsigned_event: UnsignedEvent) -> SessionNonces {
+        SessionNonces {
             nonces: BTreeMap::new(),
             unsigned_event,
         }
@@ -60,13 +60,13 @@ impl SigningSession {
 pub struct SigningSessionKeyPrefix;
 
 impl_db_record!(
-    key = SigningSessionKey,
-    value = SigningSession,
+    key = SessionNonceKey,
+    value = SessionNonces,
     db_prefix = DbKeyPrefix::SigningSession
 );
 
 impl_db_lookup!(
-    key = SigningSessionKey,
+    key = SessionNonceKey,
     query_prefix = SigningSessionKeyPrefix
 );
 

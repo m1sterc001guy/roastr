@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::fmt;
 use std::io::ErrorKind;
 
@@ -66,7 +67,9 @@ pub struct NostrConfigLocal;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Encodable, Decodable)]
 pub struct NostrConfigConsensus {
+    pub all_peers: BTreeSet<PeerId>,
     pub num_nonces: u32,
+    // Frost key needs to be last until read_to_end is fixed
     pub frost_key: NostrFrostKey,
 }
 

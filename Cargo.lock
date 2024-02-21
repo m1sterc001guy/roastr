@@ -3407,6 +3407,7 @@ dependencies = [
  "fedimint-core",
  "fedimint-server",
  "futures",
+ "itertools 0.10.5",
  "nostr-common",
  "nostr-sdk",
  "rand",

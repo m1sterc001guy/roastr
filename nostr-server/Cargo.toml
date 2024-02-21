@@ -19,6 +19,7 @@ anyhow = "1.0.66"
 fedimint-core = { workspace = true }
 fedimint-server = { workspace = true }
 futures = "0.3.28"
+itertools = "0.10.0"
 erased-serde = "0.3"
 nostr-sdk = "0.24.0"
 rand = "0.8"
