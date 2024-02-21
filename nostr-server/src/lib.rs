@@ -25,16 +25,16 @@ use futures::StreamExt;
 use itertools::Itertools;
 use nostr_common::config::{
     NostrClientConfig, NostrConfig, NostrConfigConsensus, NostrConfigLocal, NostrConfigPrivate,
-    NostrFrostKey, NostrGenParams,
+    NostrGenParams,
 };
 use nostr_common::endpoint_constants::{
     CREATE_NOTE_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
 };
 use nostr_common::{
     peer_id_to_scalar, EventId, NonceKeyPair, NostrCommonInit, NostrConsensusItem, NostrFrost,
-    NostrInput, NostrInputError, NostrModuleTypes, NostrOutcome, NostrOutput, NostrOutputError,
-    Point, PublicScalar, SecretScalar, Signature, SignatureShare, SigningSession, UnsignedEvent,
-    CONSENSUS_VERSION, KIND,
+    NostrFrostKey, NostrInput, NostrInputError, NostrModuleTypes, NostrOutcome, NostrOutput,
+    NostrOutputError, Point, PublicScalar, SecretScalar, Signature, SignatureShare, SigningSession,
+    UnsignedEvent, CONSENSUS_VERSION, KIND,
 };
 use rand::rngs::OsRng;
 use schnorr_fun::fun::poly;

@@ -1,16 +1,13 @@
 use std::collections::BTreeSet;
 use std::fmt;
-use std::io::ErrorKind;
-use std::ops::Deref;
 
 use fedimint_core::core::ModuleKind;
-use fedimint_core::encoding::{Decodable, DecodeError, Encodable};
+use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::{plugin_types_trait_impl_config, PeerId};
-use schnorr_fun::frost::EncodedFrostKey;
 use schnorr_fun::fun::marker::Secret;
 use serde::{Deserialize, Serialize};
 
-use crate::{Hash, NostrCommonInit};
+use crate::{Hash, NostrCommonInit, NostrFrostKey};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NostrGenParams {
@@ -72,59 +69,6 @@ pub struct NostrConfigConsensus {
     pub num_nonces: u32,
     // Frost key needs to be last until read_to_end is fixed
     pub frost_key: NostrFrostKey,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub struct NostrFrostKey(EncodedFrostKey);
-
-impl NostrFrostKey {
-    pub fn new(key: EncodedFrostKey) -> NostrFrostKey {
-        NostrFrostKey(key)
-    }
-}
-
-impl Encodable for NostrFrostKey {
-    fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
-        let frost_key_bytes = bincode2::serialize(&self.0).map_err(|_| {
-            std::io::Error::new(ErrorKind::Other, "Error serializing FrostKey".to_string())
-        })?;
-        writer.write(frost_key_bytes.as_slice())?;
-        Ok(frost_key_bytes.len())
-    }
-}
-
-impl Decodable for NostrFrostKey {
-    fn consensus_decode<R: std::io::Read>(
-        r: &mut R,
-        _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
-    ) -> Result<Self, DecodeError> {
-        let mut frost_key_bytes = Vec::new();
-        // TODO: Should use read_exact here instead
-        r.read_to_end(&mut frost_key_bytes)
-            .map_err(|_| DecodeError::from_str("Failed to read FrostKey bytes"))?;
-        let frost_key = bincode2::deserialize(&frost_key_bytes)
-            .map_err(|_| DecodeError::from_str("Failed to deserialize FrostKey"))?;
-        Ok(NostrFrostKey(frost_key))
-    }
-}
-
-impl Hash for NostrFrostKey {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        let mut frost_key_bytes = bincode2::serialize(&self.0)
-            .map_err(|_| {
-                std::io::Error::new(ErrorKind::Other, "Error serializing FrostKey".to_string())
-            })
-            .expect("Could not serialize EncodedFrostKey into bytes");
-        state.write(&mut frost_key_bytes);
-    }
-}
-
-impl Deref for NostrFrostKey {
-    type Target = EncodedFrostKey;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

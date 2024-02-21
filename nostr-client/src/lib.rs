@@ -8,11 +8,12 @@ use commands::{
     CREATE_NOTE_COMMAND, GET_EVENT_SESSIONS_COMMAND, HELP_COMMAND, SIGN_NOTE_COMMAND,
     SUPPORTED_COMMANDS,
 };
-use common::config::NostrFrostKey;
 use common::endpoint_constants::{
     CREATE_NOTE_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
 };
-use common::{peer_id_to_scalar, EventId, NostrFrost, SignatureShare, UnsignedEvent};
+use common::{
+    peer_id_to_scalar, EventId, NostrFrost, NostrFrostKey, SignatureShare, UnsignedEvent,
+};
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
 use fedimint_client::module::{ClientModule, IClientModule};
