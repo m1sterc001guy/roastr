@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::{impl_db_lookup, impl_db_record, PeerId};
-use nostr_common::{NonceKeyPair, SignatureShare, UnsignedEvent};
+use nostr_common::{NonceKeyPair, NostrEventId, SignatureShare, UnsignedEvent};
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 
@@ -38,28 +38,41 @@ impl_db_lookup!(key = NonceKey, query_prefix = NonceKeyPrefix);
 #[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct SigningSessionKey {
     pub peers: Vec<PeerId>,
+    pub event_id: NostrEventId,
+}
+
+#[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct SigningSession {
+    pub nonces: BTreeMap<PeerId, NonceKeyPair>,
     pub unsigned_event: UnsignedEvent,
+}
+
+impl SigningSession {
+    pub fn new(unsigned_event: UnsignedEvent) -> SigningSession {
+        SigningSession {
+            nonces: BTreeMap::new(),
+            unsigned_event,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize)]
 pub struct SigningSessionKeyPrefix;
 
-#[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize)]
-pub struct SigningSessionPeerPrefix {
-    pub peers: Vec<PeerId>,
-}
-
-impl_db_record!(key = SigningSessionKey, value = BTreeMap<PeerId, NonceKeyPair>, db_prefix = DbKeyPrefix::SigningSession);
+impl_db_record!(
+    key = SigningSessionKey,
+    value = SigningSession,
+    db_prefix = DbKeyPrefix::SigningSession
+);
 
 impl_db_lookup!(
     key = SigningSessionKey,
-    query_prefix = SigningSessionKeyPrefix,
-    query_prefix = SigningSessionPeerPrefix
+    query_prefix = SigningSessionKeyPrefix
 );
 
 #[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct SignatureShareKey {
-    pub unsigned_event: UnsignedEvent,
+    pub event_id: NostrEventId,
     pub peers: Vec<PeerId>,
 }
 

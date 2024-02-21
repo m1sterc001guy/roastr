@@ -7,7 +7,7 @@ use fedimint_core::core::{Decoder, ModuleInstanceId, ModuleKind};
 use fedimint_core::encoding::{Decodable, DecodeError, Encodable};
 use fedimint_core::module::{CommonModuleInit, ModuleCommon, ModuleConsensusVersion};
 use fedimint_core::{plugin_types_trait_impl_common, PeerId};
-use nostr_sdk::UnsignedEvent as NdkUnsignedEvent;
+use nostr_sdk::{EventId, UnsignedEvent as NdkUnsignedEvent};
 use rand::rngs::OsRng;
 use schnorr_fun::frost::Frost;
 use schnorr_fun::fun::marker::{NonZero, Public, Secret, Zero};
@@ -215,6 +215,27 @@ impl Decodable for UnsignedEvent {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct NostrEventId(pub EventId);
+
+impl Encodable for NostrEventId {
+    fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
+        self.0.as_bytes().consensus_encode(writer)
+    }
+}
+
+impl Decodable for NostrEventId {
+    fn consensus_decode<R: std::io::Read>(
+        r: &mut R,
+        modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
+    ) -> Result<Self, DecodeError> {
+        let bytes = Vec::<u8>::consensus_decode(r, modules)?;
+        let event_id =
+            EventId::from_slice(bytes.as_slice()).map_err(|e| DecodeError::from_err(e))?;
+        Ok(NostrEventId(event_id))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Point(pub schnorr_fun::fun::Point);
 
@@ -332,4 +353,5 @@ impl Decodable for Signature {
 pub struct SignatureShare {
     pub share: PublicScalar,
     pub nonce: NonceKeyPair,
+    pub unsigned_event: UnsignedEvent,
 }
