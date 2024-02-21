@@ -1,5 +1,5 @@
 use core::hash::Hash;
-use std::fmt;
+use std::fmt::{self, Display};
 use std::num::NonZeroU32;
 
 use config::NostrClientConfig;
@@ -52,7 +52,7 @@ pub type NostrFrost = Frost<
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Encodable, Decodable)]
 pub enum NostrConsensusItem {
     Nonce(NonceKeyPair),
-    SigningSession((UnsignedEvent, Vec<PeerId>)),
+    SigningSession((UnsignedEvent, SigningSession)),
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize, Serialize, Encodable, Decodable)]
@@ -354,4 +354,38 @@ pub struct SignatureShare {
     pub share: PublicScalar,
     pub nonce: NonceKeyPair,
     pub unsigned_event: UnsignedEvent,
+}
+
+#[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct SigningSession {
+    sorted_peers: Vec<PeerId>,
+}
+
+impl Display for SigningSession {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let peers_str = self
+            .sorted_peers
+            .iter()
+            .map(|i| i.to_string())
+            .collect::<Vec<String>>()
+            .join(",");
+        f.write_str(peers_str.as_str())
+    }
+}
+
+impl Iterator for SigningSession {
+    type Item = PeerId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.sorted_peers.pop()
+    }
+}
+
+impl SigningSession {
+    pub fn new(mut peers: Vec<PeerId>) -> SigningSession {
+        peers.sort();
+        SigningSession {
+            sorted_peers: peers,
+        }
+    }
 }

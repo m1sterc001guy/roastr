@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::{impl_db_lookup, impl_db_record, PeerId};
-use nostr_common::{NonceKeyPair, NostrEventId, SignatureShare, UnsignedEvent};
+use nostr_common::{NonceKeyPair, NostrEventId, SignatureShare, SigningSession, UnsignedEvent};
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 
@@ -37,7 +37,7 @@ impl_db_lookup!(key = NonceKey, query_prefix = NonceKeyPrefix);
 
 #[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct SessionNonceKey {
-    pub peers: Vec<PeerId>,
+    pub peers: SigningSession,
     pub event_id: NostrEventId,
 }
 
@@ -73,11 +73,21 @@ impl_db_lookup!(
 #[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct SignatureShareKey {
     pub event_id: NostrEventId,
-    pub peers: Vec<PeerId>,
+    pub peers: SigningSession,
+}
+
+#[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct SignatureShareKeyPrefix {
+    pub event_id: NostrEventId,
 }
 
 impl_db_record!(
     key = SignatureShareKey,
     value = SignatureShare,
     db_prefix = DbKeyPrefix::SignatureShare
+);
+
+impl_db_lookup!(
+    key = SignatureShareKey,
+    query_prefix = SignatureShareKeyPrefix
 );

@@ -158,7 +158,7 @@ impl ClientModule for NostrClientModule {
                         return Ok(json!(combined));
                     }
                 }
-                Ok(json!("Cannot make a signature yet for {event_id}"))
+                Ok(json!("Cannot make a signature yet."))
             }
             "get-sig-shares" => {
                 if args.len() != 2 {

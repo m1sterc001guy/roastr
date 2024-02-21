@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::fmt::Display;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use db::{NonceKey, NonceKeyPrefix, SessionNonceKey, SigningSessionKeyPrefix};
+use db::{
+    NonceKey, NonceKeyPrefix, SessionNonceKey, SignatureShareKeyPrefix, SigningSessionKeyPrefix,
+};
 use fedimint_core::config::{
     ConfigGenModuleParams, DkgResult, ServerModuleConfig, ServerModuleConsensusConfig,
     TypedServerModuleConfig, TypedServerModuleConsensusConfig,
@@ -28,8 +29,8 @@ use nostr_common::config::{
 use nostr_common::{
     peer_id_to_scalar, NonceKeyPair, NostrCommonInit, NostrConsensusItem, NostrEventId, NostrFrost,
     NostrInput, NostrInputError, NostrModuleTypes, NostrOutcome, NostrOutput, NostrOutputError,
-    Point, PublicScalar, SecretScalar, Signature, SignatureShare, UnsignedEvent, CONSENSUS_VERSION,
-    KIND,
+    Point, PublicScalar, SecretScalar, Signature, SignatureShare, SigningSession, UnsignedEvent,
+    CONSENSUS_VERSION, KIND,
 };
 use nostr_sdk::EventId;
 use rand::rngs::OsRng;
@@ -336,9 +337,7 @@ impl ServerModule for Nostr {
 
                 let my_peer_id = self.cfg.private.my_peer_id;
                 if peer_id == my_peer_id {
-                    let sig_share = self
-                        .create_sig_share(unsigned_event.clone(), nonces)
-                        .await?;
+                    let sig_share = self.create_sig_share(unsigned_event.clone(), nonces).await;
                     dbtx.insert_new_entry(
                         &SignatureShareKey {
                             event_id: NostrEventId(unsigned_event.0.id),
@@ -398,20 +397,14 @@ impl ServerModule for Nostr {
                 async |module: &Nostr, context, unsigned_event: UnsignedEvent| -> () {
                     //check_auth(context)?;
 
+                    let mut dbtx = context.dbtx();
+                    let event_id = NostrEventId(unsigned_event.0.id);
                     let my_peer_id = module.cfg.private.my_peer_id;
-                    tracing::info!("Iterating over all sessions for peer: {my_peer_id}");
                     let mut sign_session_iter = SigningSessionIter::new(my_peer_id, &module.cfg.consensus);
                     while let Some(sign_session) = sign_session_iter.next() {
-                        tracing::info!("Sign Session: {sign_session}");
+                        tracing::info!("Creating sign session: {sign_session} for note {unsigned_event:?}");
+                        dbtx.insert_new_entry(&SessionNonceKey { event_id: event_id.clone(), peers: sign_session }, &SessionNonces::new(unsigned_event.clone())).await;
                     }
-
-                    tracing::info!("Received create_note request. Message: {unsigned_event:?}");
-                    let mut dbtx = context.dbtx();
-
-                    // Create note will always start new signing sessions
-                    // TODO: iterate through all signing sessions
-                    let peers: Vec<PeerId> = vec![0.into(), 1.into(), 2.into()];
-                    dbtx.insert_new_entry(&SessionNonceKey { event_id: NostrEventId(unsigned_event.0.id), peers }, &SessionNonces::new(unsigned_event)).await;
 
                     Ok(())
                 }
@@ -419,20 +412,16 @@ impl ServerModule for Nostr {
             api_endpoint! {
                 "sign_note",
                 ApiVersion::new(0, 0),
-                async |module: &Nostr, context, note_id: EventId| -> () {
+                async |module: &Nostr, context, event_id: EventId| -> () {
                     //check_auth(context)?;
 
-                    tracing::info!("Received sign_note request. EventId: {note_id}");
                     let mut dbtx = context.dbtx();
 
-
-                    // TODO: iterate through all signing sessions
+                    let event_id = NostrEventId(event_id);
                     let my_peer_id = module.cfg.private.my_peer_id;
-                    let peers: Vec<PeerId> = vec![0.into(), 1.into(), 2.into()];
-                    if let Ok(_) = module.sign_note(&mut dbtx.to_ref_nc(), peers, note_id).await {
-                        tracing::info!("Peer: {my_peer_id} successfully signed note");
-                    } else {
-                        tracing::error!("We have hard coded the signing session, we should start a new signing session");
+                    let mut sign_session_iter = SigningSessionIter::new(my_peer_id, &module.cfg.consensus);
+                    while let Some(sign_session) = sign_session_iter.next() {
+                        module.sign_note(&mut dbtx.to_ref_nc(), sign_session.clone(), event_id.clone()).await;
                     }
 
                     Ok(())
@@ -444,27 +433,17 @@ impl ServerModule for Nostr {
                 async |_module: &Nostr, context, event_id: EventId| -> BTreeMap<String, SignatureShare> {
 
                     let mut dbtx = context.dbtx();
-                    let mut sigs = BTreeMap::new();
-                    // TODO: iterate through all signing sessions
-                    //let my_peer_id = module.cfg.private.my_peer_id;
-                    let peers: Vec<PeerId> = vec![0.into(), 1.into(), 2.into()];
-                    let peers_str = peers
-                        .iter()
-                        .map(|i| i.to_string())
-                        .collect::<Vec<String>>()
-                        .join(",");
 
-                    if let Some(sig_share) = dbtx.get_value(&SignatureShareKey {
-                        peers,
-                        event_id: NostrEventId(event_id),
-                    }).await {
-                        tracing::info!("Received sign_note request. Returning sig share: {sig_share:?}");
-                        sigs.insert(peers_str, sig_share);
-                        return Ok(sigs);
-                    }
+                    let signatures = dbtx
+                        .find_by_prefix(&SignatureShareKeyPrefix { event_id: NostrEventId(event_id) })
+                        .await
+                        .map(|(key, sig_share)| {
+                            (key.peers.to_string(), sig_share)
+                        })
+                        .collect::<BTreeMap<_, _>>()
+                        .await;
 
-                    tracing::info!("Received sign_note request. Returning empty...");
-                    Ok(sigs)
+                    Ok(signatures)
                 }
             },
         ]
@@ -477,61 +456,94 @@ impl Nostr {
         Nostr { cfg, frost }
     }
 
+    async fn get_unsigned_event_for_id(
+        &self,
+        dbtx: &mut DatabaseTransaction<'_>,
+        event_id: NostrEventId,
+    ) -> Option<UnsignedEvent> {
+        let signature = dbtx
+            .find_by_prefix(&SignatureShareKeyPrefix {
+                event_id: event_id.clone(),
+            })
+            .await
+            .next()
+            .await;
+        if let Some(signature) = signature {
+            Some(signature.1.unsigned_event)
+        } else {
+            None
+        }
+    }
+
     async fn sign_note(
         &self,
         dbtx: &mut DatabaseTransaction<'_>,
-        peers: Vec<PeerId>,
-        event_id: EventId,
-    ) -> anyhow::Result<SignatureShare> {
+        peers: SigningSession,
+        event_id: NostrEventId,
+    ) {
         let signing_session = dbtx
             .get_value(&SessionNonceKey {
                 peers: peers.clone(),
-                event_id: NostrEventId(event_id),
+                event_id: event_id.clone(),
             })
             .await;
         if let Some(session) = signing_session {
             // Check if a signature share for this session already exists
-            if let Some(sig_share) = dbtx
+            if dbtx
                 .get_value(&SignatureShareKey {
                     peers: peers.clone(),
-                    event_id: NostrEventId(event_id),
+                    event_id: event_id.clone(),
                 })
                 .await
+                .is_some()
             {
-                tracing::info!("SIGN-NOTE Signature share already exists, nothing to do");
-                return Ok(sig_share);
+                tracing::info!(
+                    "Signature Share already exists for {event_id:?} for {peers}. Nothing to do."
+                );
             } else {
-                tracing::info!("SIGN-NOTE Signature share does not exist, creating...");
+                tracing::info!("Creating signature share for {event_id:?} for {peers}");
                 let sig_share = self
                     .create_sig_share(session.unsigned_event.clone(), session.nonces)
-                    .await?;
+                    .await;
 
                 dbtx.insert_entry(
                     &SignatureShareKey {
                         peers: peers.clone(),
-                        event_id: NostrEventId(event_id),
+                        event_id,
                     },
                     &sig_share,
                 )
                 .await;
-
-                return Ok(sig_share);
+            }
+        } else {
+            // No signing session exists, create a new one
+            if let Some(unsigned_event) =
+                self.get_unsigned_event_for_id(dbtx, event_id.clone()).await
+            {
+                tracing::info!("Starting new sign session for {event_id:?} for {peers}");
+                dbtx.insert_new_entry(
+                    &SessionNonceKey {
+                        event_id: event_id.clone(),
+                        peers,
+                    },
+                    &SessionNonces::new(unsigned_event.clone()),
+                )
+                .await;
             }
         }
-
-        Err(anyhow!("Signing session does not exist"))
     }
 
     async fn get_nonces(
         &self,
         dbtx: &mut DatabaseTransaction<'_>,
-        peers: &Vec<PeerId>,
+        peers: &SigningSession,
     ) -> anyhow::Result<BTreeMap<PeerId, NonceKeyPair>> {
         let mut nonces = BTreeMap::new();
-        for peer_id in peers {
+        let mut peers_iter = peers.clone().into_iter();
+        while let Some(peer_id) = peers_iter.next() {
             // Always use the first available nonce for the peer
             let (nonce_key, _) = match dbtx
-                .find_by_prefix(&NonceKeyPrefix { peer_id: *peer_id })
+                .find_by_prefix(&NonceKeyPrefix { peer_id })
                 .await
                 .next()
                 .await
@@ -555,7 +567,7 @@ impl Nostr {
         &self,
         unsigned_event: UnsignedEvent,
         nonces: BTreeMap<PeerId, NonceKeyPair>,
-    ) -> anyhow::Result<SignatureShare> {
+    ) -> SignatureShare {
         let frost_key = self.cfg.consensus.frost_key.clone();
         let xonly_frost_key = frost_key.0.into_frost_key().into_xonly_key();
         let message_raw = Message::raw(unsigned_event.0.id.as_bytes());
@@ -589,37 +601,11 @@ impl Nostr {
             unsigned_event,
         };
 
-        Ok(signature_share)
+        signature_share
     }
 }
 
 pub type FrostShare = (BTreeMap<PublicScalar, SecretScalar>, Signature);
-
-#[derive(Debug, Clone)]
-struct SigningSession {
-    sorted_peers: Vec<PeerId>,
-}
-
-impl Display for SigningSession {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let peers_str = self
-            .sorted_peers
-            .iter()
-            .map(|i| i.to_string())
-            .collect::<Vec<String>>()
-            .join(",");
-        f.write_str(peers_str.as_str())
-    }
-}
-
-impl SigningSession {
-    fn new(mut peers: Vec<PeerId>) -> SigningSession {
-        peers.sort();
-        SigningSession {
-            sorted_peers: peers,
-        }
-    }
-}
 
 struct SigningSessionIter {
     combination_iter: Box<dyn Iterator<Item = Vec<PeerId>> + Send + Sync>,
