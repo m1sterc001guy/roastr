@@ -31,7 +31,7 @@ use nostr_common::endpoint_constants::{
     CREATE_NOTE_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
 };
 use nostr_common::{
-    peer_id_to_scalar, NonceKeyPair, NostrCommonInit, NostrConsensusItem, NostrEventId, NostrFrost,
+    peer_id_to_scalar, EventId, NonceKeyPair, NostrCommonInit, NostrConsensusItem, NostrFrost,
     NostrInput, NostrInputError, NostrModuleTypes, NostrOutcome, NostrOutput, NostrOutputError,
     Point, PublicScalar, SecretScalar, Signature, SignatureShare, SigningSession, UnsignedEvent,
     CONSENSUS_VERSION, KIND,
@@ -348,7 +348,7 @@ impl ServerModule for Nostr {
                 // Deterministically dequeue the nonces from the pre-preared list and assign
                 // them to this signing session
                 let nonces = self.dequeue_nonces(dbtx, &signing_session).await?;
-                let event_id = NostrEventId::new(unsigned_event.id);
+                let event_id = EventId::new(unsigned_event.id);
                 tracing::info!(
                     "Inserting nonces for peers: {signing_session} Heard from PeerId: {peer_id}"
                 );
@@ -435,7 +435,7 @@ impl ServerModule for Nostr {
                     //check_auth(context)?;
 
                     let mut dbtx = context.dbtx();
-                    let event_id = NostrEventId::new(unsigned_event.id);
+                    let event_id = EventId::new(unsigned_event.id);
                     let my_peer_id = module.cfg.private.my_peer_id;
                     let mut sign_session_iter = SigningSessionIter::new(my_peer_id, &module.cfg.consensus);
                     while let Some(signing_session) = sign_session_iter.next() {
@@ -449,7 +449,7 @@ impl ServerModule for Nostr {
             api_endpoint! {
                 SIGN_NOTE_ENDPOINT,
                 ApiVersion::new(0, 0),
-                async |module: &Nostr, context, event_id: NostrEventId| -> () {
+                async |module: &Nostr, context, event_id: EventId| -> () {
                     //check_auth(context)?;
 
                     let mut dbtx = context.dbtx();
@@ -466,7 +466,7 @@ impl ServerModule for Nostr {
             api_endpoint! {
                 GET_EVENT_SESSIONS_ENDPOINT,
                 ApiVersion::new(0, 0),
-                async |_module: &Nostr, context, event_id: NostrEventId| -> BTreeMap<String, SignatureShare> {
+                async |_module: &Nostr, context, event_id: EventId| -> BTreeMap<String, SignatureShare> {
 
                     let mut dbtx = context.dbtx();
 
@@ -498,7 +498,7 @@ impl Nostr {
     async fn get_unsigned_event_for_id(
         &self,
         dbtx: &mut DatabaseTransaction<'_>,
-        event_id: NostrEventId,
+        event_id: EventId,
     ) -> Option<UnsignedEvent> {
         let signature = dbtx
             .find_by_prefix(&SignatureShareKeyPrefix { event_id })
@@ -518,7 +518,7 @@ impl Nostr {
         &self,
         dbtx: &mut DatabaseTransaction<'_>,
         signing_session: SigningSession,
-        event_id: NostrEventId,
+        event_id: EventId,
     ) {
         let session_nonces = dbtx
             .get_value(&SessionNonceKey {

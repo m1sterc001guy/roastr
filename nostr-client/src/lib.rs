@@ -12,7 +12,7 @@ use common::config::NostrFrostKey;
 use common::endpoint_constants::{
     CREATE_NOTE_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
 };
-use common::{peer_id_to_scalar, NostrEventId, NostrFrost, SignatureShare, UnsignedEvent};
+use common::{peer_id_to_scalar, EventId, NostrFrost, SignatureShare, UnsignedEvent};
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
 use fedimint_client::module::{ClientModule, IClientModule};
@@ -112,8 +112,7 @@ impl ClientModule for NostrClientModule {
                     bail!("`{SIGN_NOTE_COMMAND}` command expects 2 arguments: <note-id> <peer_id>")
                 }
 
-                let event_id =
-                    NostrEventId::from_str(args[1].to_string_lossy().to_string().as_str())?;
+                let event_id = EventId::from_str(args[1].to_string_lossy().to_string().as_str())?;
                 let peer_id: PeerId = args[2].to_string_lossy().parse::<PeerId>()?;
                 let signature = self.sign_note(event_id, peer_id).await?;
                 Ok(json!(signature))
@@ -123,8 +122,7 @@ impl ClientModule for NostrClientModule {
                     bail!("`{GET_EVENT_SESSIONS_COMMAND}` command expects 1 argument: <note-id>")
                 }
 
-                let event_id =
-                    NostrEventId::from_str(args[1].to_string_lossy().to_string().as_str())?;
+                let event_id = EventId::from_str(args[1].to_string_lossy().to_string().as_str())?;
                 let signing_sessions = self.get_signing_sessions(event_id).await?;
                 Ok(json!(signing_sessions))
             }
@@ -141,7 +139,7 @@ impl ClientModule for NostrClientModule {
 }
 
 impl NostrClientModule {
-    pub async fn create_note(&self, text: String, peer_id: PeerId) -> anyhow::Result<NostrEventId> {
+    pub async fn create_note(&self, text: String, peer_id: PeerId) -> anyhow::Result<EventId> {
         let pubkey = self
             .frost_key
             .into_frost_key()
@@ -160,12 +158,12 @@ impl NostrClientModule {
                 peer_id,
             )
             .await?;
-        Ok(NostrEventId::new(unsigned_event.id))
+        Ok(EventId::new(unsigned_event.id))
     }
 
     pub async fn sign_note(
         &self,
-        event_id: NostrEventId,
+        event_id: EventId,
         peer_id: PeerId,
     ) -> anyhow::Result<Option<schnorr_fun::Signature>> {
         // Request the peer to sign the event
@@ -194,7 +192,7 @@ impl NostrClientModule {
 
     async fn get_signing_sessions(
         &self,
-        event_id: NostrEventId,
+        event_id: EventId,
     ) -> anyhow::Result<BTreeMap<String, BTreeMap<PeerId, SignatureShare>>> {
         let total_peers = self.module_api.all_peers().total();
         let sig_shares: BTreeMap<PeerId, BTreeMap<String, SignatureShare>> = self

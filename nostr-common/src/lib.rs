@@ -9,7 +9,7 @@ use fedimint_core::core::{Decoder, ModuleInstanceId, ModuleKind};
 use fedimint_core::encoding::{Decodable, DecodeError, Encodable};
 use fedimint_core::module::{CommonModuleInit, ModuleCommon, ModuleConsensusVersion};
 use fedimint_core::{plugin_types_trait_impl_common, PeerId};
-use nostr_sdk::{EventId, UnsignedEvent as NdkUnsignedEvent};
+use nostr_sdk::{EventId as NdkEventId, UnsignedEvent as NdkUnsignedEvent};
 use rand::rngs::OsRng;
 use schnorr_fun::frost::Frost;
 use schnorr_fun::fun::marker::{NonZero, Public, Secret, Zero};
@@ -247,45 +247,45 @@ impl Deref for UnsignedEvent {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Copy)]
-pub struct NostrEventId(EventId);
+pub struct EventId(NdkEventId);
 
-impl NostrEventId {
-    pub fn new(event_id: EventId) -> NostrEventId {
-        NostrEventId(event_id)
+impl EventId {
+    pub fn new(event_id: NdkEventId) -> EventId {
+        EventId(event_id)
     }
 }
 
-impl Encodable for NostrEventId {
+impl Encodable for EventId {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
         self.0.as_bytes().consensus_encode(writer)
     }
 }
 
-impl Decodable for NostrEventId {
+impl Decodable for EventId {
     fn consensus_decode<R: std::io::Read>(
         r: &mut R,
         modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
     ) -> Result<Self, DecodeError> {
         let bytes = Vec::<u8>::consensus_decode(r, modules)?;
         let event_id =
-            EventId::from_slice(bytes.as_slice()).map_err(|e| DecodeError::from_err(e))?;
-        Ok(NostrEventId(event_id))
+            NdkEventId::from_slice(bytes.as_slice()).map_err(|e| DecodeError::from_err(e))?;
+        Ok(EventId(event_id))
     }
 }
 
-impl Deref for NostrEventId {
-    type Target = EventId;
+impl Deref for EventId {
+    type Target = NdkEventId;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl FromStr for NostrEventId {
+impl FromStr for EventId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(NostrEventId::new(EventId::from_str(s)?))
+        Ok(EventId::new(NdkEventId::from_str(s)?))
     }
 }
 
