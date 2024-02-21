@@ -141,10 +141,16 @@ impl fmt::Display for RoastrOutcome {
     }
 }
 
-// TODO: Implement this
 impl fmt::Display for RoastrConsensusItem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "RoastrConsensusItem")
+        match self {
+            RoastrConsensusItem::Nonce(keypair) => {
+                write!(f, "Nonce: {keypair:?}")
+            }
+            RoastrConsensusItem::SigningSession((unsigned_event, session)) => {
+                write!(f, "UnsignedEvent: {unsigned_event:?} Session: {session:?}")
+            }
+        }
     }
 }
 

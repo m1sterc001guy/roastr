@@ -54,10 +54,9 @@ pub struct RoastrClientConfig {
     pub frost_key: RoastrKey,
 }
 
-// TODO: Implement this
 impl fmt::Display for RoastrClientConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "RoastrClientConfig")
+        write!(f, "{:?}", self.frost_key)
     }
 }
 
