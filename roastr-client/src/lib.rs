@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 use std::ffi;
+use std::ops::Deref;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -32,6 +33,7 @@ use roastr_common::{
 use schnorr_fun::{frost, Message};
 use serde_json::json;
 use sha2::Sha256;
+use tracing::error;
 
 mod commands;
 mod db;
@@ -42,10 +44,12 @@ pub struct RoastrClientModule {
     pub frost: Frost,
 }
 
-// TODO: Implement this
 impl std::fmt::Debug for RoastrClientModule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RoastrClientModule").finish()
+        f.debug_struct("RoastrClientModule")
+            .field("frost_key", &self.frost_key)
+            .field("module_api", &self.module_api)
+            .finish()
     }
 }
 
@@ -184,8 +188,7 @@ impl RoastrClientModule {
         for (_, signatures) in signing_sessions {
             if signatures.len() >= threshold {
                 let combined = self.create_frost_signature(signatures, &self.frost_key);
-
-                return Ok(Some(combined));
+                return Ok(combined);
             }
         }
 
@@ -228,7 +231,7 @@ impl RoastrClientModule {
         &self,
         shares: BTreeMap<PeerId, SignatureShare>,
         frost_key: &RoastrKey,
-    ) -> schnorr_fun::Signature {
+    ) -> Option<schnorr_fun::Signature> {
         let xonly_frost_key = frost_key.into_frost_key().into_xonly_key();
         let unsigned_event = shares
             .clone()
@@ -248,16 +251,40 @@ impl RoastrClientModule {
             .frost
             .start_sign_session(&xonly_frost_key, session_nonces, message);
 
+        // Verify each signature share is valid
+        for (peer_id, sig_share) in shares.clone().into_iter() {
+            let curr_index = peer_id_to_scalar(&peer_id);
+            if !self.frost.verify_signature_share(
+                &xonly_frost_key,
+                &session,
+                curr_index,
+                sig_share.share.deref().clone().mark_zero_choice(),
+            ) {
+                error!(%peer_id, "Signature share failed verification");
+                return None;
+            }
+        }
+
         let frost_shares = shares
             .clone()
             .into_iter()
             .map(|(_, sig_share)| sig_share.share.mark_zero_choice())
             .collect::<Vec<_>>();
 
-        // TODO: Verify each share under the public key
+        let combined_sig =
+            self.frost
+                .combine_signature_shares(&xonly_frost_key, &session, frost_shares);
 
-        self.frost
-            .combine_signature_shares(&xonly_frost_key, &session, frost_shares)
+        if !self
+            .frost
+            .schnorr
+            .verify(&xonly_frost_key.public_key(), message, &combined_sig)
+        {
+            error!(%combined_sig, "Schnorr signature verification failed");
+            return None;
+        }
+
+        Some(combined_sig)
     }
 }
 
