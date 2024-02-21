@@ -128,27 +128,41 @@ impl ServerModuleInit for RoastrInit {
     /// Generates configs for all peers in a trusted manner for testing
     fn trusted_dealer_gen(
         &self,
-        _peers: &[PeerId],
+        peers: &[PeerId],
         params: &ConfigGenModuleParams,
     ) -> BTreeMap<PeerId, ServerModuleConfig> {
-        let _params = self.parse_params(params).unwrap();
-        // Generate a config for each peer
-        /*
+        let params = self.parse_params(params).unwrap();
+        let threshold = params.consensus.threshold;
+
+        let shares = self
+            .frost
+            .simulate_keygen(threshold as usize, peers.len(), &mut OsRng);
+        let all_peers = BTreeSet::from_iter(peers.iter().cloned());
+
         peers
             .iter()
-            .map(|&peer| {
+            .map(|peer_id| {
+                let secret_share = shares
+                    .1
+                    .get(&peer_id_to_scalar(peer_id))
+                    .expect("No secret share for peer during trusted setup");
                 let config = RoastrConfig {
-                    local: RoastrConfigLocal {},
-                    private: RoastrConfigPrivate,
-                    consensus: RoastrConfigConsensus {
-                        threshold: params.consensus.threshold,
+                    local: RoastrConfigLocal,
+                    private: RoastrConfigPrivate {
+                        my_peer_id: *peer_id,
+                        my_secret_share: secret_share.clone(),
                     },
-                };
-                (peer, config.to_erased())
+                    consensus: RoastrConfigConsensus {
+                        num_nonces: params.consensus.num_nonces,
+                        frost_key: RoastrKey::new(shares.clone().0.into()),
+                        all_peers: all_peers.clone(),
+                    },
+                }
+                .to_erased();
+
+                (peer_id.clone(), config)
             })
-            .collect()
-        */
-        todo!()
+            .collect::<BTreeMap<PeerId, ServerModuleConfig>>()
     }
 
     /// Generates configs for all peers in an untrusted manner
