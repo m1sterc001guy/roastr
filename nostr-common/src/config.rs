@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::fmt;
 use std::io::ErrorKind;
+use std::ops::Deref;
 
 use fedimint_core::core::ModuleKind;
 use fedimint_core::encoding::{Decodable, DecodeError, Encodable};
@@ -74,7 +75,13 @@ pub struct NostrConfigConsensus {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq)]
-pub struct NostrFrostKey(pub EncodedFrostKey);
+pub struct NostrFrostKey(EncodedFrostKey);
+
+impl NostrFrostKey {
+    pub fn new(key: EncodedFrostKey) -> NostrFrostKey {
+        NostrFrostKey(key)
+    }
+}
 
 impl Encodable for NostrFrostKey {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
@@ -109,6 +116,14 @@ impl Hash for NostrFrostKey {
             })
             .expect("Could not serialize EncodedFrostKey into bytes");
         state.write(&mut frost_key_bytes);
+    }
+}
+
+impl Deref for NostrFrostKey {
+    type Target = EncodedFrostKey;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

@@ -2,6 +2,7 @@ use core::hash::Hash;
 use std::fmt::{self, Display};
 use std::num::NonZeroU32;
 use std::ops::Deref;
+use std::str::FromStr;
 
 use config::NostrClientConfig;
 use fedimint_core::core::{Decoder, ModuleInstanceId, ModuleKind};
@@ -19,10 +20,8 @@ use sha2::digest::typenum::{UInt, UTerm, B0, B1};
 use sha2::{OidSha256, Sha256VarCore};
 use thiserror::Error;
 
-// Common contains types shared by both the client and server
-
-// The client and server configuration
 pub mod config;
+pub mod endpoint_constants;
 
 /// Unique name for this module
 pub const KIND: ModuleKind = ModuleKind::from_static_str("nostr");
@@ -279,6 +278,14 @@ impl Deref for NostrEventId {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl FromStr for NostrEventId {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(NostrEventId::new(EventId::from_str(s)?))
     }
 }
 

@@ -4,7 +4,14 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::bail;
-use common::config::NostrClientConfig;
+use commands::{
+    CREATE_NOTE_COMMAND, GET_EVENT_SESSIONS_COMMAND, HELP_COMMAND, SIGN_NOTE_COMMAND,
+    SUPPORTED_COMMANDS,
+};
+use common::config::NostrFrostKey;
+use common::endpoint_constants::{
+    CREATE_NOTE_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
+};
 use common::{peer_id_to_scalar, NostrEventId, NostrFrost, SignatureShare, UnsignedEvent};
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
@@ -19,21 +26,18 @@ use fedimint_core::module::{
     ApiRequestErased, ApiVersion, ModuleCommon, MultiApiVersion, TransactionItemAmount,
 };
 use fedimint_core::query::AllOrDeadline;
-use fedimint_core::{apply, async_trait_maybe_send, Amount, NumPeers, PeerId};
+use fedimint_core::{apply, async_trait_maybe_send, NumPeers, PeerId};
 pub use nostr_common as common;
 use nostr_common::{NostrCommonInit, NostrModuleTypes};
-use nostr_sdk::EventId;
-use schnorr_fun::frost::{self, FrostKey};
-use schnorr_fun::fun::marker::Normal;
-use schnorr_fun::Message;
+use schnorr_fun::{frost, Message};
 use serde_json::json;
 use sha2::Sha256;
 
-pub mod api;
+mod commands;
 mod db;
 
 pub struct NostrClientModule {
-    pub cfg: NostrClientConfig,
+    pub frost_key: NostrFrostKey,
     pub module_api: DynModuleApi,
     pub frost: NostrFrost,
 }
@@ -65,32 +69,26 @@ impl ClientModule for NostrClientModule {
         }
     }
 
+    // Nostr module does not support transactions so `input_amount` is not required
     fn input_amount(
         &self,
         _input: &<Self::Common as ModuleCommon>::Input,
     ) -> Option<TransactionItemAmount> {
-        Some(TransactionItemAmount {
-            amount: Amount::ZERO,
-            fee: Amount::ZERO,
-        })
+        None
     }
 
+    // Nostr module does not support transactions so `output_amount` is not required
     fn output_amount(
         &self,
         _output: &<Self::Common as ModuleCommon>::Output,
     ) -> Option<TransactionItemAmount> {
-        Some(TransactionItemAmount {
-            amount: Amount::ZERO,
-            fee: Amount::ZERO,
-        })
+        None
     }
 
     async fn handle_cli_command(
         &self,
         args: &[ffi::OsString],
     ) -> anyhow::Result<serde_json::Value> {
-        const SUPPORTED_COMMANDS: &str = "create-note, sign-note";
-
         if args.is_empty() {
             bail!("Expected to be called with at least 1 argument: <command> ...");
         }
@@ -98,91 +96,102 @@ impl ClientModule for NostrClientModule {
         let command = args[0].to_string_lossy();
 
         match command.as_ref() {
-            "create-note" => {
+            CREATE_NOTE_COMMAND => {
                 if args.len() != 3 {
-                    bail!("`create-note` command expects 2 arguments: <text> <peer_id>")
+                    bail!("`{CREATE_NOTE_COMMAND}` command expects 2 arguments: <text> <peer_id>")
                 }
 
                 let text: String = args[1].to_string_lossy().to_string();
                 let peer_id: PeerId = args[2].to_string_lossy().parse::<PeerId>()?;
 
-                let pubkey = self
-                    .cfg
-                    .frost_key
-                    .0
-                    .into_frost_key()
-                    .public_key()
-                    .to_xonly_bytes();
-                let xonly = nostr_sdk::key::XOnlyPublicKey::from_slice(&pubkey)
-                    .expect("Failed to create xonly public key");
-                let unsigned_event = UnsignedEvent::new(
-                    nostr_sdk::EventBuilder::new_text_note(text, &[]).to_unsigned_event(xonly),
-                );
-                self.module_api
-                    .request_single_peer(
-                        None, // no timeout
-                        "create_note".to_string(),
-                        ApiRequestErased::new(unsigned_event.clone()),
-                        peer_id,
-                    )
-                    .await?;
-                let note_id = format!("{}", unsigned_event.id);
-                Ok(json!(note_id))
+                let event_id = self.create_note(text, peer_id).await?;
+                Ok(json!(event_id))
             }
-            "sign-note" => {
+            SIGN_NOTE_COMMAND => {
                 if args.len() != 3 {
-                    bail!("`sign-note` command expects 2 arguments: <note-id> <peer_id>")
+                    bail!("`{SIGN_NOTE_COMMAND}` command expects 2 arguments: <note-id> <peer_id>")
                 }
 
-                let event_id: String = args[1].to_string_lossy().to_string();
-                let event_id = NostrEventId::new(EventId::from_str(event_id.as_str())?);
+                let event_id =
+                    NostrEventId::from_str(args[1].to_string_lossy().to_string().as_str())?;
                 let peer_id: PeerId = args[2].to_string_lossy().parse::<PeerId>()?;
-
-                self.module_api
-                    .request_single_peer(
-                        None,
-                        "sign_note".to_string(),
-                        ApiRequestErased::new(event_id),
-                        peer_id,
-                    )
-                    .await?;
-
-                let threshold = self.cfg.frost_key.0.threshold();
-                let signing_sessions = self.get_signing_sessions(event_id).await?;
-                for (_, signatures) in signing_sessions {
-                    if signatures.len() >= threshold {
-                        let combined = self.create_frost_signature(
-                            signatures,
-                            self.cfg.frost_key.0.into_frost_key(),
-                        );
-                        return Ok(json!(combined));
-                    }
-                }
-                Ok(json!("Cannot make a signature yet."))
+                let signature = self.sign_note(event_id, peer_id).await?;
+                Ok(json!(signature))
             }
-            "get-sig-shares" => {
+            GET_EVENT_SESSIONS_COMMAND => {
                 if args.len() != 2 {
-                    bail!("`sign-note` command expects 1 argument: <note-id>")
+                    bail!("`{GET_EVENT_SESSIONS_COMMAND}` command expects 1 argument: <note-id>")
                 }
 
-                let event_id: String = args[1].to_string_lossy().to_string();
-                let event_id = NostrEventId::new(EventId::from_str(event_id.as_str())?);
+                let event_id =
+                    NostrEventId::from_str(args[1].to_string_lossy().to_string().as_str())?;
                 let signing_sessions = self.get_signing_sessions(event_id).await?;
                 Ok(json!(signing_sessions))
             }
-            "help" => {
+            HELP_COMMAND => {
                 let mut map = HashMap::new();
                 map.insert("supported_commands", SUPPORTED_COMMANDS);
                 Ok(serde_json::to_value(map)?)
             }
             command => {
-                bail!("Unknown command: {command}, supported commands: {SUPPORTED_COMMANDS}");
+                bail!("Unknown command: {command}, supported commands: {SUPPORTED_COMMANDS:?}");
             }
         }
     }
 }
 
 impl NostrClientModule {
+    pub async fn create_note(&self, text: String, peer_id: PeerId) -> anyhow::Result<NostrEventId> {
+        let pubkey = self
+            .frost_key
+            .into_frost_key()
+            .public_key()
+            .to_xonly_bytes();
+        let xonly = nostr_sdk::key::XOnlyPublicKey::from_slice(&pubkey)
+            .expect("Failed to create xonly public key");
+        let unsigned_event = UnsignedEvent::new(
+            nostr_sdk::EventBuilder::new_text_note(text, &[]).to_unsigned_event(xonly),
+        );
+        self.module_api
+            .request_single_peer(
+                None,
+                CREATE_NOTE_ENDPOINT.to_string(),
+                ApiRequestErased::new(unsigned_event.clone()),
+                peer_id,
+            )
+            .await?;
+        Ok(NostrEventId::new(unsigned_event.id))
+    }
+
+    pub async fn sign_note(
+        &self,
+        event_id: NostrEventId,
+        peer_id: PeerId,
+    ) -> anyhow::Result<Option<schnorr_fun::Signature>> {
+        // Request the peer to sign the event
+        self.module_api
+            .request_single_peer(
+                None,
+                SIGN_NOTE_ENDPOINT.to_string(),
+                ApiRequestErased::new(event_id),
+                peer_id,
+            )
+            .await?;
+
+        // Check if we can create a signature
+        let threshold = self.frost_key.threshold();
+        let signing_sessions = self.get_signing_sessions(event_id).await?;
+        for (_, signatures) in signing_sessions {
+            if signatures.len() >= threshold {
+                let combined = self.create_frost_signature(signatures, &self.frost_key);
+
+                return Ok(Some(combined));
+            }
+        }
+
+        Ok(None)
+    }
+
     async fn get_signing_sessions(
         &self,
         event_id: NostrEventId,
@@ -195,7 +204,7 @@ impl NostrClientModule {
                     total_peers,
                     fedimint_core::time::now() + Duration::from_secs(60),
                 ),
-                "get_sig_shares".to_string(),
+                GET_EVENT_SESSIONS_ENDPOINT.to_string(),
                 ApiRequestErased::new(event_id),
             )
             .await?;
@@ -218,9 +227,9 @@ impl NostrClientModule {
     fn create_frost_signature(
         &self,
         shares: BTreeMap<PeerId, SignatureShare>,
-        frost_key: FrostKey<Normal>,
+        frost_key: &NostrFrostKey,
     ) -> schnorr_fun::Signature {
-        let xonly_frost_key = frost_key.into_xonly_key();
+        let xonly_frost_key = frost_key.into_frost_key().into_xonly_key();
         let unsigned_event = shares
             .clone()
             .into_iter()
@@ -280,7 +289,7 @@ impl ClientModuleInit for NostrClientInit {
 
     async fn init(&self, args: &ClientModuleInitArgs<Self>) -> anyhow::Result<Self::Module> {
         Ok(NostrClientModule {
-            cfg: args.cfg().clone(),
+            frost_key: args.cfg().frost_key.clone(),
             module_api: args.module_api().clone(),
             frost: frost::new_with_synthetic_nonces::<Sha256, rand::rngs::OsRng>(),
         })

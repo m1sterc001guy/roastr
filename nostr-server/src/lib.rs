@@ -27,6 +27,9 @@ use nostr_common::config::{
     NostrClientConfig, NostrConfig, NostrConfigConsensus, NostrConfigLocal, NostrConfigPrivate,
     NostrFrostKey, NostrGenParams,
 };
+use nostr_common::endpoint_constants::{
+    CREATE_NOTE_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
+};
 use nostr_common::{
     peer_id_to_scalar, NonceKeyPair, NostrCommonInit, NostrConsensusItem, NostrEventId, NostrFrost,
     NostrInput, NostrInputError, NostrModuleTypes, NostrOutcome, NostrOutput, NostrOutputError,
@@ -225,7 +228,7 @@ impl ServerModuleInit for NostrInit {
             },
             consensus: NostrConfigConsensus {
                 num_nonces: params.consensus.num_nonces,
-                frost_key: NostrFrostKey(frost_key.into()),
+                frost_key: NostrFrostKey::new(frost_key.into()),
                 all_peers,
             },
         }
@@ -426,7 +429,7 @@ impl ServerModule for Nostr {
     fn api_endpoints(&self) -> Vec<ApiEndpoint<Self>> {
         vec![
             api_endpoint! {
-                "create_note",
+                CREATE_NOTE_ENDPOINT,
                 ApiVersion::new(0, 0),
                 async |module: &Nostr, context, unsigned_event: UnsignedEvent| -> () {
                     //check_auth(context)?;
@@ -444,7 +447,7 @@ impl ServerModule for Nostr {
                 }
             },
             api_endpoint! {
-                "sign_note",
+                SIGN_NOTE_ENDPOINT,
                 ApiVersion::new(0, 0),
                 async |module: &Nostr, context, event_id: NostrEventId| -> () {
                     //check_auth(context)?;
@@ -461,7 +464,7 @@ impl ServerModule for Nostr {
                 }
             },
             api_endpoint! {
-                "get_sig_shares",
+                GET_EVENT_SESSIONS_ENDPOINT,
                 ApiVersion::new(0, 0),
                 async |_module: &Nostr, context, event_id: NostrEventId| -> BTreeMap<String, SignatureShare> {
 
@@ -607,7 +610,7 @@ impl Nostr {
         nonces: BTreeMap<PeerId, NonceKeyPair>,
     ) -> SignatureShare {
         let frost_key = self.cfg.consensus.frost_key.clone();
-        let xonly_frost_key = frost_key.0.into_frost_key().into_xonly_key();
+        let xonly_frost_key = frost_key.into_frost_key().into_xonly_key();
 
         // Nostr events are always signed by their id
         let message_raw = Message::raw(unsigned_event.id.as_bytes());
@@ -666,7 +669,7 @@ struct SigningSessionIter {
 impl SigningSessionIter {
     fn new(peer_id: PeerId, consensus: &NostrConfigConsensus) -> SigningSessionIter {
         let all_peers = consensus.all_peers.clone();
-        let threshold = consensus.frost_key.0.threshold();
+        let threshold = consensus.frost_key.threshold();
         let combination_iter = all_peers
             .into_iter()
             .combinations(threshold)
