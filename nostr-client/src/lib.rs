@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use anyhow::bail;
 use common::config::NostrClientConfig;
-use common::{NostrFrost, SignatureShare, UnsignedEvent};
+use common::{peer_id_to_scalar, NostrFrost, SignatureShare, UnsignedEvent};
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
 use fedimint_client::module::{ClientModule, IClientModule};
@@ -23,7 +23,9 @@ use fedimint_core::{apply, async_trait_maybe_send, Amount, NumPeers, PeerId};
 pub use nostr_common as common;
 use nostr_common::{NostrCommonInit, NostrModuleTypes};
 use nostr_sdk::EventId;
-use schnorr_fun::frost;
+use schnorr_fun::frost::{self, FrostKey};
+use schnorr_fun::fun::marker::Normal;
+use schnorr_fun::Message;
 use serde_json::json;
 use sha2::Sha256;
 
@@ -42,7 +44,6 @@ impl std::fmt::Debug for NostrClientModule {
     }
 }
 
-/// Data needed by the state machine
 #[derive(Debug, Clone)]
 pub struct NostrClientContext {
     pub decoder: Decoder,
@@ -146,18 +147,18 @@ impl ClientModule for NostrClientModule {
                     )
                     .await?;
 
-                /*
-                let threshold = self.cfg.threshold;
+                let threshold = self.cfg.frost_key.0.threshold();
                 let signing_sessions = self.get_signing_sessions(event_id).await?;
                 for (_, signatures) in signing_sessions {
-                    if signatures.len() >= threshold as usize {
-                        return Ok(json!("Can make a signature!"));
+                    if signatures.len() >= threshold {
+                        let combined = self.create_frost_signature(
+                            signatures,
+                            self.cfg.frost_key.0.into_frost_key(),
+                        );
+                        return Ok(json!(combined));
                     }
                 }
                 Ok(json!("Cannot make a signature yet for {event_id}"))
-                */
-
-                Ok(json!(event_id))
             }
             "get-sig-shares" => {
                 if args.len() != 2 {
@@ -214,29 +215,41 @@ impl NostrClientModule {
         Ok(signing_sessions)
     }
 
-    /*
     fn create_frost_signature(
         &self,
         shares: BTreeMap<PeerId, SignatureShare>,
-        frost_key: XOnlyPublicKey,
-        event_id: EventId,
-    ) {
+        frost_key: FrostKey<Normal>,
+    ) -> schnorr_fun::Signature {
+        let xonly_frost_key = frost_key.into_xonly_key();
+        let unsigned_event = shares
+            .clone()
+            .into_iter()
+            .next()
+            .expect("No shares were provided")
+            .1
+            .unsigned_event;
+        let session_nonces = shares
+            .clone()
+            .into_iter()
+            .map(|(peer_id, sig_share)| (peer_id_to_scalar(&peer_id), sig_share.nonce.0.public()))
+            .collect::<BTreeMap<_, _>>();
+
+        let message = Message::raw(unsigned_event.0.id.as_bytes());
+        let session = self
+            .frost
+            .start_sign_session(&xonly_frost_key, session_nonces, message);
+
         let frost_shares = shares
             .clone()
             .into_iter()
-            .map(|(_, sig_share)| sig_share.share.0)
+            .map(|(_, sig_share)| sig_share.share.0.mark_zero_choice())
             .collect::<Vec<_>>();
-        let nonces = shares
-            .into_iter()
-            .map(|(_, sig_share)| sig_share.nonce.0.public())
-            .collect::<Vec<_>>();
-        //let message = Message::raw(event_id.as_bytes());
-        //let session = self.frost.start_sign_session(&frost_key, nonces,
-        // message); let combined_sig =
-        // self.frost.combine_signature_shares(frost_key,
-        // session, signature_shares)
+
+        // TODO: Verify each share under the public key
+
+        self.frost
+            .combine_signature_shares(&xonly_frost_key, &session, frost_shares)
     }
-    */
 }
 
 #[derive(Debug, Clone)]

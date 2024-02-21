@@ -429,7 +429,7 @@ impl ServerModule for Nostr {
             api_endpoint! {
                 "get_sig_shares",
                 ApiVersion::new(0, 0),
-                async |module: &Nostr, context, note_id: EventId| -> BTreeMap<String, SignatureShare> {
+                async |_module: &Nostr, context, event_id: EventId| -> BTreeMap<String, SignatureShare> {
 
                     let mut dbtx = context.dbtx();
                     let mut sigs = BTreeMap::new();
@@ -442,7 +442,10 @@ impl ServerModule for Nostr {
                         .collect::<Vec<String>>()
                         .join(",");
 
-                    if let Some(sig_share) = module.get_sig_share(&mut dbtx.to_ref_nc(), peers.clone(), note_id).await {
+                    if let Some(sig_share) = dbtx.get_value(&SignatureShareKey {
+                        peers,
+                        event_id: NostrEventId(event_id),
+                    }).await {
                         tracing::info!("Received sign_note request. Returning sig share: {sig_share:?}");
                         sigs.insert(peers_str, sig_share);
                         return Ok(sigs);
@@ -462,55 +465,17 @@ impl Nostr {
         Nostr { cfg, frost }
     }
 
-    async fn get_signing_session(
-        &self,
-        dbtx: &mut DatabaseTransaction<'_>,
-        peers: Vec<PeerId>,
-        note_id: EventId,
-    ) -> Option<SigningSession> {
-        // TODO: Remove this function?
-        /*
-        dbtx.find_by_prefix(&SigningSessionPeerPrefix {
-            peers: peers.clone(),
-        })
-        .await
-        .collect::<Vec<_>>()
-        .await
-        .into_iter()
-        .filter(|(session, _)| session.unsigned_event.0.id == note_id)
-        .next()
-        */
-        dbtx.get_value(&SigningSessionKey {
-            peers,
-            event_id: NostrEventId(note_id),
-        })
-        .await
-    }
-
-    async fn get_sig_share(
-        &self,
-        dbtx: &mut DatabaseTransaction<'_>,
-        peers: Vec<PeerId>,
-        event_id: EventId,
-    ) -> Option<SignatureShare> {
-        // Check if a signature share for this session already exists
-
-        // TODO: Remove this function?
-        dbtx.get_value(&SignatureShareKey {
-            peers,
-            event_id: NostrEventId(event_id),
-        })
-        .await
-    }
-
     async fn sign_note(
         &self,
         dbtx: &mut DatabaseTransaction<'_>,
         peers: Vec<PeerId>,
         event_id: EventId,
     ) -> anyhow::Result<SignatureShare> {
-        let signing_session = self
-            .get_signing_session(dbtx, peers.clone(), event_id)
+        let signing_session = dbtx
+            .get_value(&SigningSessionKey {
+                peers: peers.clone(),
+                event_id: NostrEventId(event_id),
+            })
             .await;
         if let Some(session) = signing_session {
             // Check if a signature share for this session already exists
@@ -565,7 +530,6 @@ impl Nostr {
                 }
             };
 
-            //let scalar_id = peer_id_to_scalar(&nonce_key.peer_id);
             nonces.insert(nonce_key.peer_id, nonce_key.nonce.clone());
 
             // remove the nonce from the database
