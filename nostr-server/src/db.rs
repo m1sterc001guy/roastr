@@ -10,7 +10,7 @@ use strum_macros::EnumIter;
 #[derive(Clone, EnumIter, Debug)]
 pub enum DbKeyPrefix {
     Nonce = 0x01,
-    SigningSession = 0x02,
+    SessionNonces = 0x02,
     SignatureShare = 0x03,
 }
 
@@ -62,7 +62,7 @@ pub struct SigningSessionKeyPrefix;
 impl_db_record!(
     key = SessionNonceKey,
     value = SessionNonces,
-    db_prefix = DbKeyPrefix::SigningSession
+    db_prefix = DbKeyPrefix::SessionNonces
 );
 
 impl_db_lookup!(

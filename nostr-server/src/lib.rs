@@ -597,14 +597,13 @@ pub type FrostShare = (BTreeMap<PublicScalar, SecretScalar>, Signature);
 
 #[derive(Debug, Clone)]
 struct SigningSession {
-    selected_peers: BTreeSet<PeerId>,
+    sorted_peers: Vec<PeerId>,
 }
 
 impl Display for SigningSession {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut sorted = Vec::from_iter(self.selected_peers.clone().into_iter());
-        sorted.sort();
-        let peers_str = sorted
+        let peers_str = self
+            .sorted_peers
             .iter()
             .map(|i| i.to_string())
             .collect::<Vec<String>>()
@@ -614,9 +613,10 @@ impl Display for SigningSession {
 }
 
 impl SigningSession {
-    fn new(peers: Vec<PeerId>) -> SigningSession {
+    fn new(mut peers: Vec<PeerId>) -> SigningSession {
+        peers.sort();
         SigningSession {
-            selected_peers: BTreeSet::from_iter(peers.into_iter()),
+            sorted_peers: peers,
         }
     }
 }
