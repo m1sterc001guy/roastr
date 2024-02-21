@@ -115,7 +115,7 @@ impl ClientModule for NostrClientModule {
                     .to_xonly_bytes();
                 let xonly = nostr_sdk::key::XOnlyPublicKey::from_slice(&pubkey)
                     .expect("Failed to create xonly public key");
-                let unsigned_event = UnsignedEvent(
+                let unsigned_event = UnsignedEvent::new(
                     nostr_sdk::EventBuilder::new_text_note(text, &[]).to_unsigned_event(xonly),
                 );
                 self.module_api
@@ -126,7 +126,7 @@ impl ClientModule for NostrClientModule {
                         peer_id,
                     )
                     .await?;
-                let note_id = format!("{}", unsigned_event.0.id);
+                let note_id = format!("{}", unsigned_event.id);
                 Ok(json!(note_id))
             }
             "sign-note" => {
@@ -135,7 +135,7 @@ impl ClientModule for NostrClientModule {
                 }
 
                 let event_id: String = args[1].to_string_lossy().to_string();
-                let event_id = NostrEventId(EventId::from_str(event_id.as_str())?);
+                let event_id = NostrEventId::new(EventId::from_str(event_id.as_str())?);
                 let peer_id: PeerId = args[2].to_string_lossy().parse::<PeerId>()?;
 
                 self.module_api
@@ -166,7 +166,7 @@ impl ClientModule for NostrClientModule {
                 }
 
                 let event_id: String = args[1].to_string_lossy().to_string();
-                let event_id = NostrEventId(EventId::from_str(event_id.as_str())?);
+                let event_id = NostrEventId::new(EventId::from_str(event_id.as_str())?);
                 let signing_sessions = self.get_signing_sessions(event_id).await?;
                 Ok(json!(signing_sessions))
             }
@@ -234,7 +234,7 @@ impl NostrClientModule {
             .map(|(peer_id, sig_share)| (peer_id_to_scalar(&peer_id), sig_share.nonce.public()))
             .collect::<BTreeMap<_, _>>();
 
-        let message = Message::raw(unsigned_event.0.id.as_bytes());
+        let message = Message::raw(unsigned_event.id.as_bytes());
         let session = self
             .frost
             .start_sign_session(&xonly_frost_key, session_nonces, message);
@@ -242,7 +242,7 @@ impl NostrClientModule {
         let frost_shares = shares
             .clone()
             .into_iter()
-            .map(|(_, sig_share)| sig_share.share.0.mark_zero_choice())
+            .map(|(_, sig_share)| sig_share.share.mark_zero_choice())
             .collect::<Vec<_>>();
 
         // TODO: Verify each share under the public key

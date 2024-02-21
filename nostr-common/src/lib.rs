@@ -211,7 +211,13 @@ impl Deref for NonceKeyPair {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct UnsignedEvent(pub NdkUnsignedEvent);
+pub struct UnsignedEvent(NdkUnsignedEvent);
+
+impl UnsignedEvent {
+    pub fn new(unsigned_event: NdkUnsignedEvent) -> UnsignedEvent {
+        UnsignedEvent(unsigned_event)
+    }
+}
 
 impl Encodable for UnsignedEvent {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
@@ -233,10 +239,22 @@ impl Decodable for UnsignedEvent {
     }
 }
 
-/// Wrapper type for nostr's event id that. Needed for implementing
-/// Encodable/Decodable
+impl Deref for UnsignedEvent {
+    type Target = NdkUnsignedEvent;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Copy)]
-pub struct NostrEventId(pub EventId);
+pub struct NostrEventId(EventId);
+
+impl NostrEventId {
+    pub fn new(event_id: EventId) -> NostrEventId {
+        NostrEventId(event_id)
+    }
+}
 
 impl Encodable for NostrEventId {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
@@ -256,8 +274,22 @@ impl Decodable for NostrEventId {
     }
 }
 
+impl Deref for NostrEventId {
+    type Target = EventId;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[derive(Debug, Clone)]
-pub struct Point(pub schnorr_fun::fun::Point);
+pub struct Point(schnorr_fun::fun::Point);
+
+impl Point {
+    pub fn new(point: schnorr_fun::fun::Point) -> Point {
+        Point(point)
+    }
+}
 
 impl Encodable for Point {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
@@ -283,8 +315,22 @@ impl Decodable for Point {
     }
 }
 
+impl Deref for Point {
+    type Target = schnorr_fun::fun::Point;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
-pub struct PublicScalar(pub schnorr_fun::fun::Scalar<Public, NonZero>);
+pub struct PublicScalar(schnorr_fun::fun::Scalar<Public, NonZero>);
+
+impl PublicScalar {
+    pub fn new(scalar: schnorr_fun::fun::Scalar<Public, NonZero>) -> PublicScalar {
+        PublicScalar(scalar)
+    }
+}
 
 impl Encodable for PublicScalar {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
@@ -315,8 +361,22 @@ impl Decodable for PublicScalar {
     }
 }
 
+impl Deref for PublicScalar {
+    type Target = schnorr_fun::fun::Scalar<Public, NonZero>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct SecretScalar(pub schnorr_fun::fun::Scalar<Secret, Zero>);
+pub struct SecretScalar(schnorr_fun::fun::Scalar<Secret, Zero>);
+
+impl SecretScalar {
+    pub fn new(scalar: schnorr_fun::fun::Scalar<Secret, Zero>) -> SecretScalar {
+        SecretScalar(scalar)
+    }
+}
 
 impl Encodable for SecretScalar {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
@@ -342,8 +402,22 @@ impl Decodable for SecretScalar {
     }
 }
 
+impl Deref for SecretScalar {
+    type Target = schnorr_fun::fun::Scalar<Secret, Zero>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[derive(Debug, Clone)]
-pub struct Signature(pub schnorr_fun::Signature);
+pub struct Signature(schnorr_fun::Signature);
+
+impl Signature {
+    pub fn new(sig: schnorr_fun::Signature) -> Signature {
+        Signature(sig)
+    }
+}
 
 impl Encodable for Signature {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
@@ -366,6 +440,14 @@ impl Decodable for Signature {
             Some(sig) => Ok(Signature(sig)),
             None => Err(DecodeError::from_str("Failed to decode Signature")),
         }
+    }
+}
+
+impl Deref for Signature {
+    type Target = schnorr_fun::Signature;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

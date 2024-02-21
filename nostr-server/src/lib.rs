@@ -36,6 +36,7 @@ use nostr_common::{
 use rand::rngs::OsRng;
 use schnorr_fun::fun::poly;
 use schnorr_fun::Message;
+use tracing::info;
 
 use crate::db::{SessionNonces, SignatureShareKey};
 
@@ -121,12 +122,16 @@ impl ServerModuleInit for NostrInit {
     ) -> DkgResult<ServerModuleConfig> {
         let params = self.parse_params(params).unwrap();
         let threshold = params.consensus.threshold;
+
+        // Generate our own polynomial
         let my_secret_poly = poly::scalar::generate(threshold as usize, &mut OsRng);
         let my_public_poly = poly::scalar::to_point_poly(&my_secret_poly)
             .iter()
-            .map(|point| Point(point.clone()))
+            .map(|point| Point::new(point.clone()))
             .collect::<Vec<_>>();
 
+        // Exchange our polynomial with the other peers and wait for the polynomials
+        // from the other peers.
         let public_polynomials = peers
             .exchange_with_peers::<Vec<Point>>(
                 "nostr_polynomials".to_string(),
@@ -139,37 +144,47 @@ impl ServerModuleInit for NostrInit {
             .map(|(peer_id, poly)| {
                 (
                     peer_id_to_scalar(&peer_id),
-                    poly.into_iter().map(|point| point.0).collect::<Vec<_>>(),
+                    poly.into_iter()
+                        .map(|point| point.deref().clone())
+                        .collect::<Vec<_>>(),
                 )
             })
             .collect::<BTreeMap<_, _>>();
 
         let my_index = peer_id_to_scalar(&peers.our_id);
         let my_polys = BTreeMap::from_iter([(my_index, &my_secret_poly)]);
+
+        // Start FROST key generation
         let keygen = self
             .frost
             .new_keygen(public_polynomials, &my_polys)
             .expect("Something went wrong with what was provided by the other parties");
+
+        // Create our shares and proof of possession to send to the other peers.
         let keygen_id = self.frost.keygen_id(&keygen);
         let pop_message = Message::raw(&keygen_id);
         let (shares_i_generated, pop) =
             self.frost
                 .create_shares_and_pop(&keygen, &my_secret_poly, pop_message);
 
+        // Map the generated shares to structs that are Encodable/Decodable
         let shares_i_generated_converted = shares_i_generated
             .into_iter()
-            .map(|(public, secret)| (PublicScalar(public), SecretScalar(secret)))
+            .map(|(public, secret)| (PublicScalar::new(public), SecretScalar::new(secret)))
             .collect::<BTreeMap<_, _>>();
 
+        // Exchanges the shares and pops with all peers
         let shares_and_pop: BTreeMap<PeerId, FrostShare> = peers
             .exchange_with_peers::<FrostShare>(
                 "nostr_shares".to_string(),
-                (shares_i_generated_converted, Signature(pop)),
+                (shares_i_generated_converted, Signature::new(pop)),
                 KIND,
                 self.decoder(),
             )
             .await?;
 
+        // Aggregate the shares that were sent from other peers into just the shares
+        // that were sent for this peer.
         let my_shares = shares_and_pop
             .iter()
             .map(|(peer, shares_from_peer)| {
@@ -179,16 +194,18 @@ impl ServerModuleInit for NostrInit {
                     (
                         shares_from_peer
                             .0
-                            .get(&PublicScalar(my_index))
+                            .get(&PublicScalar::new(my_index))
                             .expect("Didnt find our share")
-                            .0
+                            .deref()
                             .clone(),
-                        shares_from_peer.1 .0.clone(),
+                        shares_from_peer.1.deref().clone(),
                     ),
                 )
             })
             .collect::<BTreeMap<_, _>>();
 
+        // Finish the key generation process. Yields a `FrostKey` and a secret share
+        // that this peer can sign with.
         let (my_secret_share, frost_key) = self
             .frost
             .finish_keygen(keygen.clone(), my_index, my_shares, pop_message)
@@ -268,6 +285,10 @@ impl ServerModule for Nostr {
             .await
             .collect::<Vec<_>>()
             .await;
+
+        // If the difference between `num_nonces` and `nonces` is positive, we need to
+        // produce some nonces as consensus items to pre-prepare the list of
+        // nonces.
         let num_new_nonces = num_nonces as i32 - nonces.len() as i32;
         for _ in 0..num_new_nonces {
             let nonce = NonceKeyPair::new(schnorr_fun::musig::NonceKeyPair::random(
@@ -283,10 +304,12 @@ impl ServerModule for Nostr {
             .collect::<Vec<_>>()
             .await;
         for (session_key, session) in signing_sessions {
+            // An empty signing session indicates that it was requested from this peer and
+            // should be broadcasted to the other peers.
             if session.nonces.is_empty() {
                 consensus_items.push(NostrConsensusItem::SigningSession((
                     session.unsigned_event,
-                    session_key.peers,
+                    session_key.signing_session,
                 )));
             }
         }
@@ -318,16 +341,18 @@ impl ServerModule for Nostr {
                         .await;
                 }
             }
-            NostrConsensusItem::SigningSession((unsigned_event, peers)) => {
-                let nonces = self.get_nonces(dbtx, &peers).await?;
-                let event_id = NostrEventId(unsigned_event.0.id);
+            NostrConsensusItem::SigningSession((unsigned_event, signing_session)) => {
+                // Deterministically dequeue the nonces from the pre-preared list and assign
+                // them to this signing session
+                let nonces = self.dequeue_nonces(dbtx, &signing_session).await?;
+                let event_id = NostrEventId::new(unsigned_event.id);
                 tracing::info!(
-                    "Inserting nonces for peers: {peers:?} Heard from PeerId: {peer_id}"
+                    "Inserting nonces for peers: {signing_session} Heard from PeerId: {peer_id}"
                 );
                 dbtx.insert_entry(
                     &SessionNonceKey {
                         event_id,
-                        peers: peers.clone(),
+                        signing_session: signing_session.clone(),
                     },
                     &SessionNonces {
                         nonces: nonces.clone(),
@@ -336,17 +361,27 @@ impl ServerModule for Nostr {
                 )
                 .await;
 
+                // If this signing session was submitted by ourself, we should also create a
+                // signature share
                 let my_peer_id = self.cfg.private.my_peer_id;
                 if peer_id == my_peer_id {
                     let sig_share = self.create_sig_share(unsigned_event.clone(), nonces).await;
-                    dbtx.insert_new_entry(&SignatureShareKey { event_id, peers }, &sig_share)
-                        .await;
+                    dbtx.insert_new_entry(
+                        &SignatureShareKey {
+                            event_id,
+                            signing_session,
+                        },
+                        &sig_share,
+                    )
+                    .await;
                 }
             }
         }
         Ok(())
     }
 
+    /// Nostr module does not support transactions so no inputs need to be
+    /// processed.
     async fn process_input<'a, 'b, 'c>(
         &'a self,
         _dbtx: &mut DatabaseTransaction<'c>,
@@ -357,6 +392,8 @@ impl ServerModule for Nostr {
         ))
     }
 
+    /// Nostr module does not support transactions so no outputs need to be
+    /// processed.
     async fn process_output<'a, 'b>(
         &'a self,
         _dbtx: &mut DatabaseTransaction<'b>,
@@ -368,6 +405,7 @@ impl ServerModule for Nostr {
         ))
     }
 
+    /// Nostr module does not support transactions so there are no outputs.
     async fn output_status(
         &self,
         _dbtx: &mut DatabaseTransaction<'_>,
@@ -376,6 +414,7 @@ impl ServerModule for Nostr {
         None
     }
 
+    /// Nostr module does not support transactions so auditing is not necessary
     async fn audit(
         &self,
         _dbtx: &mut DatabaseTransaction<'_>,
@@ -393,12 +432,12 @@ impl ServerModule for Nostr {
                     //check_auth(context)?;
 
                     let mut dbtx = context.dbtx();
-                    let event_id = NostrEventId(unsigned_event.0.id);
+                    let event_id = NostrEventId::new(unsigned_event.id);
                     let my_peer_id = module.cfg.private.my_peer_id;
                     let mut sign_session_iter = SigningSessionIter::new(my_peer_id, &module.cfg.consensus);
-                    while let Some(sign_session) = sign_session_iter.next() {
-                        tracing::info!("Creating sign session: {sign_session} for note {unsigned_event:?}");
-                        dbtx.insert_new_entry(&SessionNonceKey { event_id, peers: sign_session }, &SessionNonces::new(unsigned_event.clone())).await;
+                    while let Some(signing_session) = sign_session_iter.next() {
+                        info!("Creating signing session: {signing_session} for note {unsigned_event:?}");
+                        dbtx.insert_new_entry(&SessionNonceKey { event_id, signing_session }, &SessionNonces::new(unsigned_event.clone())).await;
                     }
 
                     Ok(())
@@ -415,7 +454,7 @@ impl ServerModule for Nostr {
                     let my_peer_id = module.cfg.private.my_peer_id;
                     let mut sign_session_iter = SigningSessionIter::new(my_peer_id, &module.cfg.consensus);
                     while let Some(sign_session) = sign_session_iter.next() {
-                        module.sign_note(&mut dbtx.to_ref_nc(), sign_session.clone(), event_id).await;
+                        module.sign_note_or_start_sign_session(&mut dbtx.to_ref_nc(), sign_session.clone(), event_id).await;
                     }
 
                     Ok(())
@@ -432,7 +471,7 @@ impl ServerModule for Nostr {
                         .find_by_prefix(&SignatureShareKeyPrefix { event_id })
                         .await
                         .map(|(key, sig_share)| {
-                            (key.peers.to_string(), sig_share)
+                            (key.signing_session.to_string(), sig_share)
                         })
                         .collect::<BTreeMap<_, _>>()
                         .await;
@@ -450,6 +489,9 @@ impl Nostr {
         Nostr { cfg, frost }
     }
 
+    /// Checks if any signing session exists for the `event_id`. If no session
+    /// exists, None is returned. If an existing signing session does exist,
+    /// the `UnsignedEvent` is returned.
     async fn get_unsigned_event_for_id(
         &self,
         dbtx: &mut DatabaseTransaction<'_>,
@@ -467,52 +509,58 @@ impl Nostr {
         }
     }
 
-    async fn sign_note(
+    /// Creates a signature share for the current peer or starts a new signing
+    /// session if it doesn't exist.
+    async fn sign_note_or_start_sign_session(
         &self,
         dbtx: &mut DatabaseTransaction<'_>,
-        peers: SigningSession,
+        signing_session: SigningSession,
         event_id: NostrEventId,
     ) {
-        let signing_session = dbtx
+        let session_nonces = dbtx
             .get_value(&SessionNonceKey {
-                peers: peers.clone(),
+                signing_session: signing_session.clone(),
                 event_id,
             })
             .await;
-        if let Some(session) = signing_session {
+        if let Some(session_nonces) = session_nonces {
             // Check if a signature share for this session already exists
             if dbtx
                 .get_value(&SignatureShareKey {
-                    peers: peers.clone(),
+                    signing_session: signing_session.clone(),
                     event_id,
                 })
                 .await
                 .is_some()
             {
                 tracing::info!(
-                    "Signature Share already exists for {event_id:?} for {peers}. Nothing to do."
+                    "Signature Share already exists for {event_id:?} for {signing_session}. Nothing to do."
                 );
-            } else {
-                tracing::info!("Creating signature share for {event_id:?} for {peers}");
-                let sig_share = self
-                    .create_sig_share(session.unsigned_event.clone(), session.nonces)
-                    .await;
-
-                dbtx.insert_entry(
-                    &SignatureShareKey {
-                        peers: peers.clone(),
-                        event_id,
-                    },
-                    &sig_share,
-                )
-                .await;
+                return;
             }
+
+            tracing::info!("Creating signature share for {event_id:?} for {signing_session}");
+            let sig_share = self
+                .create_sig_share(session_nonces.unsigned_event.clone(), session_nonces.nonces)
+                .await;
+
+            dbtx.insert_entry(
+                &SignatureShareKey {
+                    signing_session: signing_session.clone(),
+                    event_id,
+                },
+                &sig_share,
+            )
+            .await;
         } else {
             // No signing session exists, create a new one
             if let Some(unsigned_event) = self.get_unsigned_event_for_id(dbtx, event_id).await {
-                tracing::info!("Starting new sign session for {event_id:?} for {peers}");
+                tracing::info!("Starting new sign session for {event_id:?} for {signing_session}");
                 dbtx.insert_new_entry(
-                    &SessionNonceKey { event_id, peers },
+                    &SessionNonceKey {
+                        event_id,
+                        signing_session,
+                    },
                     &SessionNonces::new(unsigned_event.clone()),
                 )
                 .await;
@@ -520,13 +568,15 @@ impl Nostr {
         }
     }
 
-    async fn get_nonces(
+    /// For a given `SigningSession`, iterate through the peers and dequeue the
+    /// next nonce from the pre-prepared list.
+    async fn dequeue_nonces(
         &self,
         dbtx: &mut DatabaseTransaction<'_>,
-        peers: &SigningSession,
+        signing_session: &SigningSession,
     ) -> anyhow::Result<BTreeMap<PeerId, NonceKeyPair>> {
         let mut nonces = BTreeMap::new();
-        let mut peers_iter = peers.clone().into_iter();
+        let mut peers_iter = signing_session.clone().into_iter();
         while let Some(peer_id) = peers_iter.next() {
             // Always use the first available nonce for the peer
             let (nonce_key, _) = match dbtx
@@ -550,6 +600,7 @@ impl Nostr {
         Ok(nonces)
     }
 
+    /// Creates a signature share for the `UnsignedEvent` and the given nonces.
     async fn create_sig_share(
         &self,
         unsigned_event: UnsignedEvent,
@@ -557,20 +608,30 @@ impl Nostr {
     ) -> SignatureShare {
         let frost_key = self.cfg.consensus.frost_key.clone();
         let xonly_frost_key = frost_key.0.into_frost_key().into_xonly_key();
-        let message_raw = Message::raw(unsigned_event.0.id.as_bytes());
+
+        // Nostr events are always signed by their id
+        let message_raw = Message::raw(unsigned_event.id.as_bytes());
+
+        // Prepare the nonces to be used for this signing session by mapping the
+        // `PeerId` to `Scalar<Public, NonZero>` and `NonceKeyPair` to `Nonce`
         let session_nonces = nonces
             .clone()
             .into_iter()
-            .map(|(key, nonce_pair)| (peer_id_to_scalar(&key), nonce_pair.public()))
+            .map(|(peer, nonce_pair)| (peer_id_to_scalar(&peer), nonce_pair.public()))
             .collect::<BTreeMap<_, _>>();
+
+        // Start the FROST signing session with the prepared nonces
         let session = self
             .frost
             .start_sign_session(&xonly_frost_key, session_nonces, message_raw);
+
+        // Using our secret share created during DKG, create our contribution to the
+        // FROST signature.
         let my_secret_share = self.cfg.private.my_secret_share.clone();
         let my_index = &self.cfg.private.my_peer_id;
         let my_nonce = nonces
             .get(&my_index)
-            .expect("We did not contribute a nonce")
+            .expect("This peer did not contribute a nonce. This should never happen, we should only create signature shares for sessions we are apart of.")
             .clone();
         let my_sig_share = self.frost.sign(
             &xonly_frost_key,
@@ -580,10 +641,8 @@ impl Nostr {
             my_nonce.deref().clone(),
         );
 
-        tracing::info!("Creating signature share: {my_sig_share:?}");
-
         let signature_share = SignatureShare {
-            share: PublicScalar(my_sig_share.non_zero().expect("Signature share was zero")),
+            share: PublicScalar::new(my_sig_share.non_zero().expect("Signature share was zero")),
             nonce: my_nonce,
             unsigned_event,
         };
@@ -592,8 +651,14 @@ impl Nostr {
     }
 }
 
+/// Shares exchanged during DKG including the proof of possession signature.
 pub type FrostShare = (BTreeMap<PublicScalar, SecretScalar>, Signature);
 
+/// Iterator the produces `SigningSession`s for all combinations of signers
+/// given the threshold and total number of signers.
+///
+/// The iterator will produce (N choose threshold - 1) number of combinations
+/// where the given `PeerId` is always included in the signing sessions.
 struct SigningSessionIter {
     combination_iter: Box<dyn Iterator<Item = Vec<PeerId>> + Send + Sync>,
 }

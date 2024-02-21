@@ -37,7 +37,7 @@ impl_db_lookup!(key = NonceKey, query_prefix = NonceKeyPrefix);
 
 #[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct SessionNonceKey {
-    pub peers: SigningSession,
+    pub signing_session: SigningSession,
     pub event_id: NostrEventId,
 }
 
@@ -73,7 +73,7 @@ impl_db_lookup!(
 #[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct SignatureShareKey {
     pub event_id: NostrEventId,
-    pub peers: SigningSession,
+    pub signing_session: SigningSession,
 }
 
 #[derive(Debug, Clone, Encodable, Decodable, Eq, PartialEq, Hash, Serialize, Deserialize)]
