@@ -21,27 +21,29 @@ license-file = "LICENSE"
 keywords = ["bitcoin", "lightning", "chaumian", "e-cash", "federated"]
 
 [workspace.dependencies]
-#fedimintd = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
-#fedimint-cli = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
-#fedimint-core = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
-#fedimint-client = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
-#fedimint-logging = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
-#fedimint-server = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
+fedimintd = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
+fedimint-cli = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
+fedimint-core = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
+fedimint-client = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
+fedimint-logging = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
+fedimint-server = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
 #fedimint-testing = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
-#devimint = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
+devimint = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
 aead = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
 threshold_crypto = { git = "https://github.com/fedimint/threshold_crypto" }
 tbs = { git = "https://github.com/fedimint/fedimint", tag = "v0.2.1" }
 
+nostr-sdk = "0.29.0"
+
 # Comment above lines and uncomment these to work with local fedimint dependencies
-fedimintd = { path = "../fedimint/fedimintd" }
-fedimint-cli = { path = "../fedimint/fedimint-cli" }
-fedimint-core = { path = "../fedimint/fedimint-core" }
-fedimint-server = { path = "../fedimint/fedimint-server" }
-fedimint-client = { path = "../fedimint/fedimint-client" }
-fedimint-logging = { path = "../fedimint/fedimint-logging" }
-fedimint-testing = { path = "../fedimint/fedimint-testing" }
-devimint = { path = "../fedimint/devimint" }
+#fedimintd = { path = "../fedimint/fedimintd" }
+#fedimint-cli = { path = "../fedimint/fedimint-cli" }
+#fedimint-core = { path = "../fedimint/fedimint-core" }
+#fedimint-server = { path = "../fedimint/fedimint-server" }
+#fedimint-client = { path = "../fedimint/fedimint-client" }
+#fedimint-logging = { path = "../fedimint/fedimint-logging" }
+#fedimint-testing = { path = "../fedimint/fedimint-testing" }
+#devimint = { path = "../fedimint/devimint" }
 
 [profile.dev]
 split-debuginfo = "packed"

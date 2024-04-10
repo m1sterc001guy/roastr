@@ -18,7 +18,7 @@ anyhow = "1.0.66"
 async-trait = "0.1.73"
 bincode2 = "2.0.1"
 fedimint-core ={ workspace = true }
-nostr-sdk = "0.24.0"
+nostr-sdk = { workspace = true }
 rand = "0.8"
 sha2 = "0.10"
 serde = { version = "1.0.149", features = ["derive"] }
