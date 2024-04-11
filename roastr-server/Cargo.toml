@@ -21,7 +21,7 @@ fedimint-server = { workspace = true }
 futures = "0.3.28"
 itertools = "0.10.0"
 erased-serde = "0.3"
-nostr-sdk = "0.24.0"
+nostr-sdk = { workspace = true }
 rand = "0.8"
 roastr-common = { path = "../roastr-common" }
 schnorr_fun = { version = "0.10.0", features = [ "serde", "bincode" ]}

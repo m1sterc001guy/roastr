@@ -23,6 +23,7 @@ use fedimint_core::module::{
 };
 use fedimint_core::query::AllOrDeadline;
 use fedimint_core::{apply, async_trait_maybe_send, NumPeers, PeerId};
+use nostr_sdk::{Alphabet, JsonUtil, Kind, SingleLetterTag, Tag, TagKind, Url};
 use roastr_common::endpoint_constants::{
     CREATE_NOTE_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
 };
@@ -164,6 +165,76 @@ impl RoastrClientModule {
                 peer_id,
             )
             .await?;
+        Ok(EventId::new(unsigned_event.id))
+    }
+
+    pub async fn create_federation_announcement(
+        &self,
+        name: Option<String>,
+        picture: Option<String>,
+        about: Option<String>,
+        peer_id: PeerId,
+    ) -> anyhow::Result<EventId> {
+        let pubkey = self
+            .frost_key
+            .into_frost_key()
+            .public_key()
+            .to_xonly_bytes();
+        let xonly = nostr_sdk::key::XOnlyPublicKey::from_slice(&pubkey)
+            .expect("Failed to create xonly public key");
+        let metadata = {
+            let mut m = nostr_sdk::nostr::Metadata::default();
+            if let Some(name) = name {
+                m = m.name(name);
+            }
+            if let Some(picture) = picture {
+                m = m.picture(Url::parse(&picture)?);
+            }
+            if let Some(about) = about {
+                m = m.about(about);
+            }
+            m
+        };
+
+        // todo figure out how to get federation_id
+        let d_tag = Tag::Identifier("federation_id".to_string());
+        // todo get network
+        let n_tag = Tag::Generic(
+            TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::N)),
+            vec!["signet".to_string()],
+        );
+        // todo get other modules
+        let modules_tag = Tag::Generic(
+            TagKind::Custom("modules".to_string()),
+            vec!["mint,lightning,wallet,nostr".to_string()],
+        );
+        // todo get all invite codes
+        let invite_codes = vec!["fed11abc...".to_string(), "fed11xyz...".to_string()];
+        let u_tags = invite_codes.into_iter().map(|code| {
+            Tag::Generic(
+                TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::U)),
+                vec![code],
+            )
+        });
+
+        let mut tags = vec![d_tag, n_tag, modules_tag];
+        tags.extend(u_tags);
+
+        let unsigned_event = UnsignedEvent::new(
+            nostr_sdk::EventBuilder::new(Kind::from(38173), metadata.as_json(), tags)
+                .to_unsigned_event(xonly.into()),
+        );
+
+        self.module_api
+            .request_single_peer(
+                None,
+                CREATE_NOTE_ENDPOINT.to_string(), /* we don't need to create a new endpoint for
+                                                   * this */
+                ApiRequestErased::new(unsigned_event.clone()),
+                peer_id,
+            )
+            .await?;
+
         Ok(EventId::new(unsigned_event.id))
     }
 
