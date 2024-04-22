@@ -21,8 +21,8 @@ use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::module::{
     ApiRequestErased, ApiVersion, ModuleCommon, MultiApiVersion, TransactionItemAmount,
 };
-use fedimint_core::query::AllOrDeadline;
-use fedimint_core::{apply, async_trait_maybe_send, NumPeers, PeerId};
+use fedimint_core::query::ThresholdOrDeadline;
+use fedimint_core::{apply, async_trait_maybe_send, NumPeersExt, PeerId};
 use nostr_sdk::{Alphabet, JsonUtil, Kind, SingleLetterTag, Tag, TagKind, Url};
 use roastr_common::endpoint_constants::{
     CREATE_NOTE_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
@@ -92,6 +92,7 @@ impl ClientModule for RoastrClientModule {
         None
     }
 
+    // TODO: Use Clap
     async fn handle_cli_command(
         &self,
         args: &[ffi::OsString],
@@ -152,10 +153,13 @@ impl RoastrClientModule {
             .into_frost_key()
             .public_key()
             .to_xonly_bytes();
-        let xonly = nostr_sdk::key::XOnlyPublicKey::from_slice(&pubkey)
-            .expect("Failed to create xonly public key");
+        let xonly =
+            secp256k1::XOnlyPublicKey::from_slice(&pubkey).expect("Failed to create public key");
+        let public_key = xonly.public_key(secp256k1::Parity::Odd);
+        let public_key = nostr_sdk::PublicKey::from_str(public_key.to_string().as_str())
+            .expect("nostr_sdk public key");
         let unsigned_event = UnsignedEvent::new(
-            nostr_sdk::EventBuilder::new_text_note(text, &[]).to_unsigned_event(xonly),
+            nostr_sdk::EventBuilder::text_note(text, []).to_unsigned_event(public_key),
         );
         self.module_api
             .request_single_peer(
@@ -175,13 +179,9 @@ impl RoastrClientModule {
         about: Option<String>,
         peer_id: PeerId,
     ) -> anyhow::Result<EventId> {
-        let pubkey = self
-            .frost_key
-            .into_frost_key()
-            .public_key()
-            .to_xonly_bytes();
-        let xonly = nostr_sdk::key::XOnlyPublicKey::from_slice(&pubkey)
-            .expect("Failed to create xonly public key");
+        let pubkey = self.frost_key.into_frost_key().public_key().to_bytes();
+        let public_key =
+            nostr_sdk::PublicKey::from_slice(&pubkey).expect("Failed to create xonly public key");
         let metadata = {
             let mut m = nostr_sdk::nostr::Metadata::default();
             if let Some(name) = name {
@@ -222,7 +222,7 @@ impl RoastrClientModule {
 
         let unsigned_event = UnsignedEvent::new(
             nostr_sdk::EventBuilder::new(Kind::from(38173), metadata.as_json(), tags)
-                .to_unsigned_event(xonly.into()),
+                .to_unsigned_event(public_key.into()),
         );
 
         self.module_api
@@ -274,7 +274,7 @@ impl RoastrClientModule {
         let sig_shares: BTreeMap<PeerId, BTreeMap<String, SignatureShare>> = self
             .module_api
             .request_with_strategy(
-                AllOrDeadline::new(
+                ThresholdOrDeadline::new(
                     total_peers,
                     fedimint_core::time::now() + Duration::from_secs(60),
                 ),
@@ -372,7 +372,7 @@ impl fedimint_core::module::ModuleInit for RoastrClientInit {
         _dbtx: &mut DatabaseTransaction<'_>,
         _prefix_names: Vec<String>,
     ) -> Box<dyn Iterator<Item = (String, Box<dyn erased_serde::Serialize + Send>)> + '_> {
-        Box::new(BTreeMap::new().into_iter())
+        todo!()
     }
 }
 
@@ -394,7 +394,7 @@ impl ClientModuleInit for RoastrClientInit {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Decodable, Encodable)]
+#[derive(Debug, Clone, Eq, PartialEq, Decodable, Encodable, Hash)]
 pub enum RoastrClientStateMachine {}
 
 impl IntoDynInstance for RoastrClientStateMachine {

@@ -19,8 +19,8 @@ anyhow = "1.0.66"
 fedimint-core = { workspace = true }
 fedimint-server = { workspace = true }
 futures = "0.3.28"
-itertools = "0.10.0"
-erased-serde = "0.3"
+itertools = "0.12.1"
+erased-serde = "0.4.4"
 nostr-sdk = { workspace = true }
 rand = "0.8"
 roastr-common = { path = "../roastr-common" }
@@ -28,6 +28,6 @@ schnorr_fun = { version = "0.10.0", features = [ "serde", "bincode" ]}
 sha2 = "0.10"
 serde = { version = "1.0.149", features = [ "derive" ] }
 serde_json = { version = "1.0.91", features = ["preserve_order"] }
-strum = "0.24"
-strum_macros = "0.24"
+strum = "0.26.2"
+strum_macros = "0.26.2"
 tracing = "0.1.37"

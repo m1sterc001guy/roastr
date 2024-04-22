@@ -10,7 +10,7 @@ use fedimint_core::core::{Decoder, ModuleInstanceId, ModuleKind};
 use fedimint_core::encoding::{Decodable, DecodeError, Encodable};
 use fedimint_core::module::{CommonModuleInit, ModuleCommon, ModuleConsensusVersion};
 use fedimint_core::{plugin_types_trait_impl_common, PeerId};
-use nostr_sdk::{EventId as NdkEventId, UnsignedEvent as NdkUnsignedEvent};
+use nostr_sdk::{EventId as NdkEventId, JsonUtil, UnsignedEvent as NdkUnsignedEvent};
 use rand::rngs::OsRng;
 use schnorr_fun::frost::EncodedFrostKey;
 use schnorr_fun::fun::marker::{NonZero, Public, Secret, Zero};
@@ -28,7 +28,7 @@ pub mod endpoint_constants;
 pub const KIND: ModuleKind = ModuleKind::from_static_str("roastr");
 
 /// Modules are non-compatible with older versions
-pub const CONSENSUS_VERSION: ModuleConsensusVersion = ModuleConsensusVersion::new(0, 0);
+pub const MODULE_CONSENSUS_VERSION: ModuleConsensusVersion = ModuleConsensusVersion::new(0, 0);
 
 // Type definition for FROST
 pub type Frost = schnorr_fun::frost::Frost<
@@ -113,7 +113,7 @@ plugin_types_trait_impl_common!(
 pub struct RoastrCommonInit;
 
 impl CommonModuleInit for RoastrCommonInit {
-    const CONSENSUS_VERSION: ModuleConsensusVersion = CONSENSUS_VERSION;
+    const CONSENSUS_VERSION: ModuleConsensusVersion = MODULE_CONSENSUS_VERSION;
     const KIND: ModuleKind = KIND;
 
     type ClientConfig = RoastrClientConfig;

@@ -21,6 +21,7 @@ use fedimint_core::module::{
 use fedimint_core::server::DynServerModule;
 use fedimint_core::{push_db_pair_items, OutPoint, PeerId, ServerModule};
 use fedimint_server::config::distributedgen::PeerHandleOps;
+use fedimint_server::config::CORE_CONSENSUS_VERSION;
 use futures::StreamExt;
 use itertools::Itertools;
 use rand::rngs::OsRng;
@@ -35,7 +36,7 @@ use roastr_common::{
     peer_id_to_scalar, EventId, Frost, NonceKeyPair, Point, PublicScalar, RoastrCommonInit,
     RoastrConsensusItem, RoastrInput, RoastrInputError, RoastrKey, RoastrModuleTypes,
     RoastrOutcome, RoastrOutput, RoastrOutputError, SecretScalar, Signature, SignatureShare,
-    SigningSession, UnsignedEvent, CONSENSUS_VERSION, KIND,
+    SigningSession, UnsignedEvent, KIND, MODULE_CONSENSUS_VERSION,
 };
 use schnorr_fun::fun::poly;
 use schnorr_fun::Message;
@@ -113,11 +114,18 @@ impl ServerModuleInit for RoastrInit {
 
     /// Returns the version of this module
     fn versions(&self, _core: CoreConsensusVersion) -> &[ModuleConsensusVersion] {
-        &[CONSENSUS_VERSION]
+        &[MODULE_CONSENSUS_VERSION]
     }
 
     fn supported_api_versions(&self) -> SupportedModuleApiVersions {
-        SupportedModuleApiVersions::from_raw((u32::MAX, 0), (0, 0), &[(0, 0)])
+        SupportedModuleApiVersions::from_raw(
+            (CORE_CONSENSUS_VERSION.major, CORE_CONSENSUS_VERSION.minor),
+            (
+                MODULE_CONSENSUS_VERSION.major,
+                MODULE_CONSENSUS_VERSION.minor,
+            ),
+            &[(0, 0)],
+        )
     }
 
     /// Initialize the module

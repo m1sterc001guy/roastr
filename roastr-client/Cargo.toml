@@ -17,11 +17,11 @@ roastr-common ={ path = "../roastr-common" }
 fedimint-client = { workspace = true }
 fedimint-core ={ workspace = true }
 futures = "0.3"
-erased-serde = "0.3"
+erased-serde = "0.4.4"
 nostr-sdk = { workspace = true }
 rand = "0.8.5"
 sha2 = "0.10"
-secp256k1 = "0.24.2"
+secp256k1 = "0.29.0"
 schnorr_fun = { version = "0.10.0", features = [ "serde", "bincode" ]}
 serde = {version = "1.0.149", features = [ "derive" ] }
 serde_json = { version = "1.0.91", features = ["preserve_order"] }
