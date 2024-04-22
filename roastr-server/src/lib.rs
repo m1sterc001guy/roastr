@@ -20,6 +20,7 @@ use fedimint_core::module::{
 };
 use fedimint_core::server::DynServerModule;
 use fedimint_core::{push_db_pair_items, OutPoint, PeerId, ServerModule};
+use fedimint_server::check_auth;
 use fedimint_server::config::distributedgen::PeerHandleOps;
 use fedimint_server::config::CORE_CONSENSUS_VERSION;
 use futures::StreamExt;
@@ -488,7 +489,7 @@ impl ServerModule for Roastr {
                 CREATE_NOTE_ENDPOINT,
                 ApiVersion::new(0, 0),
                 async |module: &Roastr, context, unsigned_event: UnsignedEvent| -> () {
-                    //check_auth(context)?;
+                    check_auth(context)?;
 
                     let mut dbtx = context.dbtx();
                     let event_id = unsigned_event.compute_id();
@@ -506,7 +507,7 @@ impl ServerModule for Roastr {
                 SIGN_NOTE_ENDPOINT,
                 ApiVersion::new(0, 0),
                 async |module: &Roastr, context, event_id: EventId| -> () {
-                    //check_auth(context)?;
+                    check_auth(context)?;
 
                     let mut dbtx = context.dbtx();
 

@@ -19,7 +19,7 @@ use fedimint_core::core::{Decoder, IntoDynInstance, ModuleInstanceId, OperationI
 use fedimint_core::db::{DatabaseTransaction, DatabaseVersion};
 use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::module::{
-    ApiRequestErased, ApiVersion, ModuleCommon, MultiApiVersion, TransactionItemAmount,
+    ApiAuth, ApiRequestErased, ApiVersion, ModuleCommon, MultiApiVersion, TransactionItemAmount,
 };
 use fedimint_core::query::ThresholdOrDeadline;
 use fedimint_core::{apply, async_trait_maybe_send, NumPeersExt, PeerId};
@@ -43,6 +43,7 @@ pub struct RoastrClientModule {
     pub frost_key: RoastrKey,
     pub module_api: DynModuleApi,
     pub frost: Frost,
+    pub admin_auth: Option<ApiAuth>,
 }
 
 impl std::fmt::Debug for RoastrClientModule {
@@ -148,6 +149,10 @@ impl ClientModule for RoastrClientModule {
 
 impl RoastrClientModule {
     pub async fn create_note(&self, text: String, peer_id: PeerId) -> anyhow::Result<EventId> {
+        let admin_auth = self
+            .admin_auth
+            .clone()
+            .ok_or(anyhow::anyhow!("Admin auth not set"))?;
         let pubkey = self
             .frost_key
             .into_frost_key()
@@ -162,7 +167,7 @@ impl RoastrClientModule {
             .request_single_peer(
                 None,
                 CREATE_NOTE_ENDPOINT.to_string(),
-                ApiRequestErased::new(unsigned_event.clone()),
+                ApiRequestErased::new(unsigned_event.clone()).with_auth(admin_auth),
                 peer_id,
             )
             .await?;
@@ -244,12 +249,17 @@ impl RoastrClientModule {
         event_id: EventId,
         peer_id: PeerId,
     ) -> anyhow::Result<Option<schnorr_fun::Signature>> {
+        let admin_auth = self
+            .admin_auth
+            .clone()
+            .ok_or(anyhow::anyhow!("Admin auth not set"))?;
+
         // Request the peer to sign the event
         self.module_api
             .request_single_peer(
                 None,
                 SIGN_NOTE_ENDPOINT.to_string(),
-                ApiRequestErased::new(event_id),
+                ApiRequestErased::new(event_id).with_auth(admin_auth),
                 peer_id,
             )
             .await?;
@@ -392,6 +402,7 @@ impl ClientModuleInit for RoastrClientInit {
             frost_key: args.cfg().frost_key.clone(),
             module_api: args.module_api().clone(),
             frost: frost::new_with_synthetic_nonces::<Sha256, rand::rngs::OsRng>(),
+            admin_auth: args.admin_auth().cloned(),
         })
     }
 }
