@@ -33,7 +33,7 @@ aead = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
 threshold_crypto = { git = "https://github.com/fedimint/threshold_crypto" }
 tbs = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
 
-nostr-sdk = "0.29.0"
+nostr-sdk = "0.30.0"
 
 # Comment above lines and uncomment these to work with local fedimint dependencies
 #fedimintd = { path = "../fedimint/fedimintd" }

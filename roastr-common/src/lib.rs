@@ -224,6 +224,16 @@ impl UnsignedEvent {
     pub fn new(unsigned_event: NdkUnsignedEvent) -> UnsignedEvent {
         UnsignedEvent(unsigned_event)
     }
+
+    pub fn compute_id(&self) -> EventId {
+        EventId::new(NdkEventId::new(
+            &self.pubkey,
+            self.created_at,
+            &self.kind,
+            &self.tags,
+            &self.content,
+        ))
+    }
 }
 
 impl Encodable for UnsignedEvent {

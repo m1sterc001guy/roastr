@@ -153,13 +153,10 @@ impl RoastrClientModule {
             .into_frost_key()
             .public_key()
             .to_xonly_bytes();
-        let xonly =
-            secp256k1::XOnlyPublicKey::from_slice(&pubkey).expect("Failed to create public key");
-        let public_key = xonly.public_key(secp256k1::Parity::Odd);
-        let public_key = nostr_sdk::PublicKey::from_str(public_key.to_string().as_str())
-            .expect("nostr_sdk public key");
+        let nostr_pubkey = nostr_sdk::PublicKey::from_slice(&pubkey)
+            .expect("Failed to create public key from frost key");
         let unsigned_event = UnsignedEvent::new(
-            nostr_sdk::EventBuilder::text_note(text, []).to_unsigned_event(public_key),
+            nostr_sdk::EventBuilder::text_note(text, []).to_unsigned_event(nostr_pubkey),
         );
         self.module_api
             .request_single_peer(
@@ -169,7 +166,7 @@ impl RoastrClientModule {
                 peer_id,
             )
             .await?;
-        Ok(EventId::new(unsigned_event.id))
+        Ok(unsigned_event.compute_id())
     }
 
     pub async fn create_federation_announcement(
@@ -179,7 +176,11 @@ impl RoastrClientModule {
         about: Option<String>,
         peer_id: PeerId,
     ) -> anyhow::Result<EventId> {
-        let pubkey = self.frost_key.into_frost_key().public_key().to_bytes();
+        let pubkey = self
+            .frost_key
+            .into_frost_key()
+            .public_key()
+            .to_xonly_bytes();
         let public_key =
             nostr_sdk::PublicKey::from_slice(&pubkey).expect("Failed to create xonly public key");
         let metadata = {
@@ -235,7 +236,7 @@ impl RoastrClientModule {
             )
             .await?;
 
-        Ok(EventId::new(unsigned_event.id))
+        Ok(unsigned_event.compute_id())
     }
 
     pub async fn sign_note(
@@ -317,7 +318,8 @@ impl RoastrClientModule {
             .map(|(peer_id, sig_share)| (peer_id_to_scalar(&peer_id), sig_share.nonce.public()))
             .collect::<BTreeMap<_, _>>();
 
-        let message = Message::raw(unsigned_event.id.as_bytes());
+        let event_id = unsigned_event.compute_id();
+        let message = Message::raw(event_id.as_bytes());
         let session = self
             .frost
             .start_sign_session(&xonly_frost_key, session_nonces, message);
@@ -372,7 +374,7 @@ impl fedimint_core::module::ModuleInit for RoastrClientInit {
         _dbtx: &mut DatabaseTransaction<'_>,
         _prefix_names: Vec<String>,
     ) -> Box<dyn Iterator<Item = (String, Box<dyn erased_serde::Serialize + Send>)> + '_> {
-        todo!()
+        Box::new([].into_iter())
     }
 }
 

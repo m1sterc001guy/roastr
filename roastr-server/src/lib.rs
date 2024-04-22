@@ -404,7 +404,7 @@ impl ServerModule for Roastr {
                 // Deterministically dequeue the nonces from the pre-preared list and assign
                 // them to this signing session
                 let nonces = self.dequeue_nonces(dbtx, &signing_session).await?;
-                let event_id = EventId::new(unsigned_event.id);
+                let event_id = unsigned_event.compute_id();
                 tracing::info!(
                     "Inserting nonces for peers: {signing_session} Heard from PeerId: {peer_id}"
                 );
@@ -491,7 +491,7 @@ impl ServerModule for Roastr {
                     //check_auth(context)?;
 
                     let mut dbtx = context.dbtx();
-                    let event_id = EventId::new(unsigned_event.id);
+                    let event_id = unsigned_event.compute_id();
                     let my_peer_id = module.cfg.private.my_peer_id;
                     let mut sign_session_iter = SigningSessionIter::new(my_peer_id, &module.cfg.consensus);
                     while let Some(signing_session) = sign_session_iter.next() {
@@ -668,7 +668,8 @@ impl Roastr {
         let xonly_frost_key = frost_key.into_frost_key().into_xonly_key();
 
         // Nostr events are always signed by their id
-        let message_raw = Message::raw(unsigned_event.id.as_bytes());
+        let event_id = unsigned_event.compute_id();
+        let message_raw = Message::raw(event_id.as_bytes());
 
         // Prepare the nonces to be used for this signing session by mapping the
         // `PeerId` to `Scalar<Public, NonZero>` and `NonceKeyPair` to `Nonce`

@@ -25,8 +25,8 @@ secp256k1 = "0.29.0"
 schnorr_fun = { version = "0.10.0", features = [ "serde", "bincode" ]}
 serde = {version = "1.0.149", features = [ "derive" ] }
 serde_json = { version = "1.0.91", features = ["preserve_order"] }
-strum = "0.24"
-strum_macros = "0.24"
+strum = "0.26.2"
+strum_macros = "0.26.2"
 tracing = "0.1.37"
 thiserror = "1.0.39"
 threshold_crypto = { workspace = true }
