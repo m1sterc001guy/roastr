@@ -12,5 +12,5 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1.0.66"
 fedimint-cli = { workspace = true }
-roastr-client = { path = "../roastr-client" }
+roastr-client = { path = "../roastr-client", features = [ "cli" ] }
 tokio = { version = "1.25.0", features = ["full", "tracing"] }

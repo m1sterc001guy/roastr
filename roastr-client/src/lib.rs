@@ -1,14 +1,8 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::ffi;
 use std::ops::Deref;
-use std::str::FromStr;
 use std::time::Duration;
 
-use anyhow::bail;
-use commands::{
-    BROADCAST_NOTE, CREATE_NOTE_COMMAND, GET_EVENT_SESSIONS_COMMAND, HELP_COMMAND,
-    SIGN_NOTE_COMMAND, SUPPORTED_COMMANDS,
-};
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
 use fedimint_client::module::{ClientModule, IClientModule};
@@ -36,11 +30,11 @@ use roastr_common::{
 };
 use schnorr_fun::{frost, Message};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use sha2::Sha256;
 use tracing::error;
 
-mod commands;
+#[cfg(feature = "cli")]
+mod cli;
 mod db;
 
 pub struct RoastrClientModule {
@@ -98,63 +92,12 @@ impl ClientModule for RoastrClientModule {
         None
     }
 
-    // TODO: Use Clap
+    #[cfg(feature = "cli")]
     async fn handle_cli_command(
         &self,
         args: &[ffi::OsString],
     ) -> anyhow::Result<serde_json::Value> {
-        if args.is_empty() {
-            bail!("Expected to be called with at least 1 argument: <command> ...");
-        }
-
-        let command = args[0].to_string_lossy();
-
-        match command.as_ref() {
-            CREATE_NOTE_COMMAND => {
-                if args.len() != 2 {
-                    bail!("`{CREATE_NOTE_COMMAND}` command expects 2 arguments: <text>")
-                }
-
-                let text: String = args[1].to_string_lossy().to_string();
-                let event_id = self.create_note(text).await?;
-                Ok(json!(event_id))
-            }
-            SIGN_NOTE_COMMAND => {
-                if args.len() != 3 {
-                    bail!("`{SIGN_NOTE_COMMAND}` command expects 2 arguments: <note-id> <peer_id>")
-                }
-
-                let event_id = EventId::from_str(args[1].to_string_lossy().to_string().as_str())?;
-                let signature = self.sign_note(event_id).await?;
-                Ok(json!(signature))
-            }
-            GET_EVENT_SESSIONS_COMMAND => {
-                if args.len() != 2 {
-                    bail!("`{GET_EVENT_SESSIONS_COMMAND}` command expects 1 argument: <note-id>")
-                }
-
-                let event_id = EventId::from_str(args[1].to_string_lossy().to_string().as_str())?;
-                let signing_sessions = self.get_signing_sessions(event_id).await?;
-                Ok(json!(signing_sessions))
-            }
-            BROADCAST_NOTE => {
-                if args.len() != 2 {
-                    bail!("`{GET_EVENT_SESSIONS_COMMAND}` command expects 1 argument: <note-id>")
-                }
-
-                let event_id = EventId::from_str(args[1].to_string_lossy().to_string().as_str())?;
-                let broadcast_response = self.broadcast_note(event_id).await?;
-                Ok(json!(broadcast_response))
-            }
-            HELP_COMMAND => {
-                let mut map = HashMap::new();
-                map.insert("supported_commands", SUPPORTED_COMMANDS);
-                Ok(serde_json::to_value(map)?)
-            }
-            command => {
-                bail!("Unknown command: {command}, supported commands: {SUPPORTED_COMMANDS:?}");
-            }
-        }
+        cli::handle_cli_command(self, args).await
     }
 }
 
@@ -264,7 +207,7 @@ impl RoastrClientModule {
         })
     }
 
-    async fn sign_note(&self, event_id: EventId) -> anyhow::Result<Option<schnorr_fun::Signature>> {
+    async fn sign_note(&self, event_id: EventId) -> anyhow::Result<()> {
         let admin_auth = self
             .admin_auth
             .clone()
@@ -278,7 +221,7 @@ impl RoastrClientModule {
                 admin_auth,
             )
             .await?;
-        Ok(None)
+        Ok(())
     }
 
     pub async fn create_signed_note(&self, event_id: EventId) -> anyhow::Result<nostr_sdk::Event> {

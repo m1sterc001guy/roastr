@@ -10,9 +10,14 @@ license = "MIT"
 name = "roastr_client"
 path = "src/lib.rs"
 
+[features]
+default =[]
+cli = ["dep:clap"]
+
 [dependencies]
 async-trait = "0.1.73"
 anyhow = "1.0.66"
+clap = { workspace = true, optional = true }
 roastr-common ={ path = "../roastr-common" }
 fedimint-client = { workspace = true }
 fedimint-core ={ workspace = true }

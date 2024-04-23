@@ -4370,6 +4370,7 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "async-trait",
+ "clap",
  "erased-serde",
  "fedimint-client",
  "fedimint-core",
