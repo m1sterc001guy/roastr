@@ -261,7 +261,7 @@ impl RoastrClientModule {
         Err(anyhow::anyhow!("Not enough signatures for note"))
     }
 
-    async fn get_signing_sessions(
+    pub async fn get_signing_sessions(
         &self,
         event_id: EventId,
     ) -> anyhow::Result<BTreeMap<String, BTreeMap<PeerId, SignatureShare>>> {

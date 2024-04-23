@@ -1596,6 +1596,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "fedimint-dummy-server"
+version = "0.3.0"
+source = "git+https://github.com/fedimint/fedimint?tag=v0.3.0#a41e3a7e31ce0f26058206a04f1cd49ef2b12fe3"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bitcoin_hashes 0.11.0",
+ "erased-serde",
+ "fedimint-core",
+ "fedimint-dummy-common",
+ "futures",
+ "rand",
+ "secp256k1 0.24.3",
+ "serde",
+ "strum 0.26.2",
+ "strum_macros 0.26.2",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "fedimint-hkdf"
 version = "0.3.0"
 source = "git+https://github.com/fedimint/fedimint?tag=v0.3.0#a41e3a7e31ce0f26058206a04f1cd49ef2b12fe3"
@@ -4437,6 +4459,9 @@ dependencies = [
  "anyhow",
  "fedimint-client",
  "fedimint-core",
+ "fedimint-dummy-client",
+ "fedimint-dummy-common",
+ "fedimint-dummy-server",
  "fedimint-logging",
  "fedimint-server",
  "fedimint-testing",

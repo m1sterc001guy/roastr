@@ -363,10 +363,16 @@ impl ServerModule for Roastr {
             .await
             .collect::<Vec<_>>()
             .await;
+        // TODO: These signing sessions need to be deleted.
         for (session_key, session) in signing_sessions {
             // An empty signing session indicates that it was requested from this peer and
             // should be broadcasted to the other peers.
             if session.nonces.is_empty() {
+                tracing::info!(
+                    ?my_peer_id,
+                    ?session_key,
+                    "SIGNING SESSION CONSENSUS_PROPOSAL"
+                );
                 consensus_items.push(RoastrConsensusItem::SigningSession((
                     session.unsigned_event,
                     session_key.signing_session,
@@ -392,10 +398,15 @@ impl ServerModule for Roastr {
                     .collect::<Vec<_>>()
                     .await;
 
+                let my_peer_id = self.cfg.private.my_peer_id;
                 let num_nonces = self.cfg.consensus.num_nonces;
-                if nonces.len() < num_nonces as usize {
+                let curr_nonces = nonces.len();
+                if curr_nonces < num_nonces as usize {
                     tracing::info!(
-                        "Processing Nonce consensus item. PeerId: {peer_id} Nonce: {nonce:?}"
+                        ?my_peer_id,
+                        ?peer_id,
+                        ?curr_nonces,
+                        "Processing Nonce Consensus Item"
                     );
                     dbtx.insert_new_entry(&NonceKey { peer_id, nonce }, &())
                         .await;
@@ -406,8 +417,13 @@ impl ServerModule for Roastr {
                 // them to this signing session
                 let nonces = self.dequeue_nonces(dbtx, &signing_session).await?;
                 let event_id = unsigned_event.compute_id();
+                let my_peer_id = self.cfg.private.my_peer_id;
                 tracing::info!(
-                    "Inserting nonces for peers: {signing_session} Heard from PeerId: {peer_id}"
+                    ?my_peer_id,
+                    ?peer_id,
+                    ?signing_session,
+                    ?event_id,
+                    "Inserting nonces into signing session"
                 );
                 dbtx.insert_entry(
                     &SessionNonceKey {
@@ -423,8 +439,13 @@ impl ServerModule for Roastr {
 
                 // If this signing session was submitted by ourself, we should also create a
                 // signature share
-                let my_peer_id = self.cfg.private.my_peer_id;
                 if peer_id == my_peer_id {
+                    tracing::info!(
+                        ?my_peer_id,
+                        ?signing_session,
+                        ?event_id,
+                        "Creating signature share"
+                    );
                     let sig_share = self.create_sig_share(unsigned_event.clone(), nonces).await;
                     dbtx.insert_new_entry(
                         &SignatureShareKey {
