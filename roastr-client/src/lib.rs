@@ -111,14 +111,12 @@ impl ClientModule for RoastrClientModule {
 
         match command.as_ref() {
             CREATE_NOTE_COMMAND => {
-                if args.len() != 3 {
-                    bail!("`{CREATE_NOTE_COMMAND}` command expects 2 arguments: <text> <peer_id>")
+                if args.len() != 2 {
+                    bail!("`{CREATE_NOTE_COMMAND}` command expects 2 arguments: <text>")
                 }
 
                 let text: String = args[1].to_string_lossy().to_string();
-                let peer_id: PeerId = args[2].to_string_lossy().parse::<PeerId>()?;
-
-                let event_id = self.create_note(text, peer_id).await?;
+                let event_id = self.create_note(text).await?;
                 Ok(json!(event_id))
             }
             SIGN_NOTE_COMMAND => {
@@ -127,8 +125,7 @@ impl ClientModule for RoastrClientModule {
                 }
 
                 let event_id = EventId::from_str(args[1].to_string_lossy().to_string().as_str())?;
-                let peer_id: PeerId = args[2].to_string_lossy().parse::<PeerId>()?;
-                let signature = self.sign_note(event_id, peer_id).await?;
+                let signature = self.sign_note(event_id).await?;
                 Ok(json!(signature))
             }
             GET_EVENT_SESSIONS_COMMAND => {
@@ -168,7 +165,7 @@ pub struct BroadcastEventResponse {
 }
 
 impl RoastrClientModule {
-    pub async fn create_note(&self, text: String, peer_id: PeerId) -> anyhow::Result<EventId> {
+    pub async fn create_note(&self, text: String) -> anyhow::Result<EventId> {
         let admin_auth = self
             .admin_auth
             .clone()
@@ -178,11 +175,10 @@ impl RoastrClientModule {
             nostr_sdk::EventBuilder::text_note(text, []).to_unsigned_event(public_key),
         );
         self.module_api
-            .request_single_peer(
-                None,
-                CREATE_NOTE_ENDPOINT.to_string(),
-                ApiRequestErased::new(unsigned_event.clone()).with_auth(admin_auth),
-                peer_id,
+            .request_admin(
+                CREATE_NOTE_ENDPOINT,
+                ApiRequestErased::new(unsigned_event.clone()),
+                admin_auth,
             )
             .await?;
         Ok(unsigned_event.compute_id())
@@ -193,8 +189,11 @@ impl RoastrClientModule {
         name: Option<String>,
         picture: Option<String>,
         about: Option<String>,
-        peer_id: PeerId,
     ) -> anyhow::Result<EventId> {
+        let admin_auth = self
+            .admin_auth
+            .clone()
+            .ok_or(anyhow::anyhow!("Admin auth not set"))?;
         let public_key = self.frost_key.public_key();
         let metadata = {
             let mut m = nostr_sdk::nostr::Metadata::default();
@@ -240,12 +239,10 @@ impl RoastrClientModule {
         );
 
         self.module_api
-            .request_single_peer(
-                None,
-                CREATE_NOTE_ENDPOINT.to_string(), /* we don't need to create a new endpoint for
-                                                   * this */
+            .request_admin(
+                CREATE_NOTE_ENDPOINT,
                 ApiRequestErased::new(unsigned_event.clone()),
-                peer_id,
+                admin_auth,
             )
             .await?;
 
@@ -267,11 +264,7 @@ impl RoastrClientModule {
         })
     }
 
-    async fn sign_note(
-        &self,
-        event_id: EventId,
-        peer_id: PeerId,
-    ) -> anyhow::Result<Option<schnorr_fun::Signature>> {
+    async fn sign_note(&self, event_id: EventId) -> anyhow::Result<Option<schnorr_fun::Signature>> {
         let admin_auth = self
             .admin_auth
             .clone()
@@ -279,14 +272,12 @@ impl RoastrClientModule {
 
         // Request the peer to sign the event
         self.module_api
-            .request_single_peer(
-                None,
-                SIGN_NOTE_ENDPOINT.to_string(),
-                ApiRequestErased::new(event_id).with_auth(admin_auth),
-                peer_id,
+            .request_admin(
+                SIGN_NOTE_ENDPOINT,
+                ApiRequestErased::new(event_id),
+                admin_auth,
             )
             .await?;
-
         Ok(None)
     }
 
