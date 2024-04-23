@@ -234,6 +234,13 @@ impl UnsignedEvent {
             &self.content,
         ))
     }
+
+    pub fn add_roast_signature(
+        self,
+        sig: nostr_sdk::secp256k1::schnorr::Signature,
+    ) -> Result<nostr_sdk::Event, nostr_sdk::event::unsigned::Error> {
+        self.0.add_signature(sig)
+    }
 }
 
 impl Encodable for UnsignedEvent {
@@ -483,6 +490,13 @@ impl RoastrKey {
     pub fn new(key: EncodedFrostKey) -> RoastrKey {
         RoastrKey(key)
     }
+
+    pub fn public_key(&self) -> nostr_sdk::PublicKey {
+        let pubkey = self.0.into_frost_key().public_key().to_xonly_bytes();
+        let public_key =
+            nostr_sdk::PublicKey::from_slice(&pubkey).expect("Failed to create xonly public key");
+        public_key
+    }
 }
 
 impl Encodable for RoastrKey {
@@ -568,4 +582,10 @@ impl SigningSession {
             sorted_peers: peers,
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetUnsignedEventRequest {
+    pub signing_session: SigningSession,
+    pub event_id: EventId,
 }

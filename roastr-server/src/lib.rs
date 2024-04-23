@@ -31,13 +31,13 @@ use roastr_common::config::{
     RoastrConfigPrivate, RoastrGenParams,
 };
 use roastr_common::endpoint_constants::{
-    CREATE_NOTE_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
+    CREATE_NOTE_ENDPOINT, GET_EVENT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
 };
 use roastr_common::{
-    peer_id_to_scalar, EventId, Frost, NonceKeyPair, Point, PublicScalar, RoastrCommonInit,
-    RoastrConsensusItem, RoastrInput, RoastrInputError, RoastrKey, RoastrModuleTypes,
-    RoastrOutcome, RoastrOutput, RoastrOutputError, SecretScalar, Signature, SignatureShare,
-    SigningSession, UnsignedEvent, KIND, MODULE_CONSENSUS_VERSION,
+    peer_id_to_scalar, EventId, Frost, GetUnsignedEventRequest, NonceKeyPair, Point, PublicScalar,
+    RoastrCommonInit, RoastrConsensusItem, RoastrInput, RoastrInputError, RoastrKey,
+    RoastrModuleTypes, RoastrOutcome, RoastrOutput, RoastrOutputError, SecretScalar, Signature,
+    SignatureShare, SigningSession, UnsignedEvent, KIND, MODULE_CONSENSUS_VERSION,
 };
 use schnorr_fun::fun::poly;
 use schnorr_fun::Message;
@@ -537,6 +537,19 @@ impl ServerModule for Roastr {
                         .await;
 
                     Ok(signatures)
+                }
+            },
+            api_endpoint! {
+                GET_EVENT,
+                ApiVersion::new(0, 0),
+                async |_module: &Roastr, context, event_request: GetUnsignedEventRequest| -> Option<UnsignedEvent> {
+                    let mut dbtx = context.dbtx();
+                    let session_nonce_key = SessionNonceKey { signing_session: event_request.signing_session, event_id: event_request.event_id };
+                    let session_nonces = dbtx.get_value(&session_nonce_key).await;
+                    match session_nonces {
+                        Some(nonces) => Ok(Some(nonces.unsigned_event)),
+                        None => Ok(None),
+                    }
                 }
             },
         ]

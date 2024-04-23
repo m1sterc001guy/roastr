@@ -107,6 +107,7 @@
               pkgs.lnd
               pkgs.esplora-electrs
               pkgs.electrs
+              pkgs.protobuf
               commonArgs.nativeBuildInputs
               fedimint.packages.${system}.devimint
               fedimint.packages.${system}.gateway-pkgs
@@ -116,6 +117,8 @@
             export RUSTFLAGS="--cfg tokio_unstable"
             export RUSTDOCFLAGS="--cfg tokio_unstable"
             export RUST_LOG="info"
+            export PROTOC="${pkgs.protobuf}/bin/protoc"
+            export PROTOC_INCLUDE="${pkgs.protobuf}/include"
           '';
 
         };

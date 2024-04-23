@@ -6,8 +6,8 @@ use std::time::Duration;
 
 use anyhow::bail;
 use commands::{
-    CREATE_NOTE_COMMAND, GET_EVENT_SESSIONS_COMMAND, HELP_COMMAND, SIGN_NOTE_COMMAND,
-    SUPPORTED_COMMANDS,
+    BROADCAST_NOTE, CREATE_NOTE_COMMAND, GET_EVENT_SESSIONS_COMMAND, HELP_COMMAND,
+    SIGN_NOTE_COMMAND, SUPPORTED_COMMANDS,
 };
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
@@ -23,15 +23,19 @@ use fedimint_core::module::{
 };
 use fedimint_core::query::ThresholdOrDeadline;
 use fedimint_core::{apply, async_trait_maybe_send, NumPeersExt, PeerId};
-use nostr_sdk::{Alphabet, JsonUtil, Kind, SingleLetterTag, Tag, TagKind, Url};
+use nostr_sdk::secp256k1::schnorr::Signature;
+use nostr_sdk::{
+    Alphabet, Client, JsonUtil, Keys, Kind, SingleLetterTag, Tag, TagKind, ToBech32, Url,
+};
 use roastr_common::endpoint_constants::{
-    CREATE_NOTE_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
+    CREATE_NOTE_ENDPOINT, GET_EVENT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
 };
 use roastr_common::{
-    peer_id_to_scalar, EventId, Frost, RoastrCommonInit, RoastrKey, RoastrModuleTypes,
-    SignatureShare, UnsignedEvent,
+    peer_id_to_scalar, EventId, Frost, GetUnsignedEventRequest, RoastrCommonInit, RoastrKey,
+    RoastrModuleTypes, SignatureShare, SigningSession, UnsignedEvent,
 };
 use schnorr_fun::{frost, Message};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::Sha256;
 use tracing::error;
@@ -44,6 +48,7 @@ pub struct RoastrClientModule {
     pub module_api: DynModuleApi,
     pub frost: Frost,
     pub admin_auth: Option<ApiAuth>,
+    pub nostr_client: Client,
 }
 
 impl std::fmt::Debug for RoastrClientModule {
@@ -135,6 +140,15 @@ impl ClientModule for RoastrClientModule {
                 let signing_sessions = self.get_signing_sessions(event_id).await?;
                 Ok(json!(signing_sessions))
             }
+            BROADCAST_NOTE => {
+                if args.len() != 2 {
+                    bail!("`{GET_EVENT_SESSIONS_COMMAND}` command expects 1 argument: <note-id>")
+                }
+
+                let event_id = EventId::from_str(args[1].to_string_lossy().to_string().as_str())?;
+                let broadcast_response = self.broadcast_note(event_id).await?;
+                Ok(json!(broadcast_response))
+            }
             HELP_COMMAND => {
                 let mut map = HashMap::new();
                 map.insert("supported_commands", SUPPORTED_COMMANDS);
@@ -147,21 +161,21 @@ impl ClientModule for RoastrClientModule {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct BroadcastEventResponse {
+    pub federation_npub: String,
+    pub event_id: String,
+}
+
 impl RoastrClientModule {
     pub async fn create_note(&self, text: String, peer_id: PeerId) -> anyhow::Result<EventId> {
         let admin_auth = self
             .admin_auth
             .clone()
             .ok_or(anyhow::anyhow!("Admin auth not set"))?;
-        let pubkey = self
-            .frost_key
-            .into_frost_key()
-            .public_key()
-            .to_xonly_bytes();
-        let nostr_pubkey = nostr_sdk::PublicKey::from_slice(&pubkey)
-            .expect("Failed to create public key from frost key");
+        let public_key = self.frost_key.public_key();
         let unsigned_event = UnsignedEvent::new(
-            nostr_sdk::EventBuilder::text_note(text, []).to_unsigned_event(nostr_pubkey),
+            nostr_sdk::EventBuilder::text_note(text, []).to_unsigned_event(public_key),
         );
         self.module_api
             .request_single_peer(
@@ -181,13 +195,7 @@ impl RoastrClientModule {
         about: Option<String>,
         peer_id: PeerId,
     ) -> anyhow::Result<EventId> {
-        let pubkey = self
-            .frost_key
-            .into_frost_key()
-            .public_key()
-            .to_xonly_bytes();
-        let public_key =
-            nostr_sdk::PublicKey::from_slice(&pubkey).expect("Failed to create xonly public key");
+        let public_key = self.frost_key.public_key();
         let metadata = {
             let mut m = nostr_sdk::nostr::Metadata::default();
             if let Some(name) = name {
@@ -244,7 +252,22 @@ impl RoastrClientModule {
         Ok(unsigned_event.compute_id())
     }
 
-    pub async fn sign_note(
+    pub async fn broadcast_note(
+        &self,
+        event_id: EventId,
+    ) -> anyhow::Result<BroadcastEventResponse> {
+        let signed_event = self.create_signed_note(event_id).await?;
+        self.nostr_client.send_event(signed_event).await?;
+
+        let federation_npub = self.frost_key.public_key().to_bech32()?;
+
+        Ok(BroadcastEventResponse {
+            federation_npub,
+            event_id: event_id.to_bech32()?,
+        })
+    }
+
+    async fn sign_note(
         &self,
         event_id: EventId,
         peer_id: PeerId,
@@ -264,17 +287,44 @@ impl RoastrClientModule {
             )
             .await?;
 
+        Ok(None)
+    }
+
+    pub async fn create_signed_note(&self, event_id: EventId) -> anyhow::Result<nostr_sdk::Event> {
         // Check if we can create a signature
         let threshold = self.frost_key.threshold();
         let signing_sessions = self.get_signing_sessions(event_id).await?;
-        for (_, signatures) in signing_sessions {
+        for (peers, signatures) in signing_sessions {
+            let sorted_peers = peers
+                .split(",")
+                .map(|peer_id| peer_id.parse::<u16>().expect("Invalid peer id").into())
+                .collect::<Vec<PeerId>>();
+
             if signatures.len() >= threshold {
-                let combined = self.create_frost_signature(signatures, &self.frost_key);
-                return Ok(combined);
+                let unsigned_event: Option<UnsignedEvent> = self
+                    .module_api
+                    .request_current_consensus(
+                        GET_EVENT.to_string(),
+                        ApiRequestErased::new(GetUnsignedEventRequest {
+                            event_id,
+                            signing_session: SigningSession::new(sorted_peers),
+                        }),
+                    )
+                    .await?;
+
+                let unsigned_event =
+                    unsigned_event.ok_or(anyhow::anyhow!("Not enough signatures for note"))?;
+                let combined = self
+                    .create_frost_signature(signatures, &self.frost_key)
+                    .ok_or(anyhow::anyhow!("Could not create valid FROST signature"))?;
+                let signature = Signature::from_slice(&combined.to_bytes())
+                    .expect("Couldn't create nostr signature");
+                let signed_event = unsigned_event.add_roast_signature(signature)?;
+                return Ok(signed_event);
             }
         }
 
-        Ok(None)
+        Err(anyhow::anyhow!("Not enough signatures for note"))
     }
 
     async fn get_signing_sessions(
@@ -398,11 +448,19 @@ impl ClientModuleInit for RoastrClientInit {
     }
 
     async fn init(&self, args: &ClientModuleInitArgs<Self>) -> anyhow::Result<Self::Module> {
+        let frost_key = args.cfg().frost_key.clone();
+        let keys = Keys::from_public_key(frost_key.public_key());
+        let nostr_client = Client::new(&keys);
+        nostr_client
+            .add_relay("wss://nostr.mutinywallet.com")
+            .await?;
+        nostr_client.connect().await;
         Ok(RoastrClientModule {
-            frost_key: args.cfg().frost_key.clone(),
+            frost_key,
             module_api: args.module_api().clone(),
             frost: frost::new_with_synthetic_nonces::<Sha256, rand::rngs::OsRng>(),
             admin_auth: args.admin_auth().cloned(),
+            nostr_client,
         })
     }
 }

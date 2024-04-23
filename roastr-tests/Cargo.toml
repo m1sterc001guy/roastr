@@ -20,11 +20,12 @@ roastr-common = { path = "../roastr-common" }
 roastr-server = { path = "../roastr-server" }
 fedimint-logging = { workspace = true }
 fedimint-server = { workspace = true }
-#fedimint-testing = { workspace = true }
+fedimint-testing = { workspace = true }
 rand = "0.8"
-secp256k1 = "0.24.2"
 tokio = { version = "1.26.0", features = ["sync"] }
 tracing = "0.1.37"
+schnorr_fun = { version = "0.10.0", features = ["serde", "bincode"] }
+sha2 = "0.10"
 
 [dev-dependencies]
 threshold_crypto = { workspace = true }

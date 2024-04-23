@@ -24,14 +24,14 @@ keywords = ["bitcoin", "lightning", "chaumian", "e-cash", "federated"]
 fedimintd = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
 fedimint-cli = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
 fedimint-core = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
+fedimint-server = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
 fedimint-client = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
 fedimint-logging = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
-fedimint-server = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
-#fedimint-testing = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
+fedimint-testing = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
 devimint = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
 aead = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
-threshold_crypto = { git = "https://github.com/fedimint/threshold_crypto" }
 tbs = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
+threshold_crypto = { git = "https://github.com/fedimint/threshold_crypto" }
 
 nostr-sdk = "0.30.0"
 
@@ -44,6 +44,8 @@ nostr-sdk = "0.30.0"
 #fedimint-logging = { path = "../fedimint/fedimint-logging" }
 #fedimint-testing = { path = "../fedimint/fedimint-testing" }
 #devimint = { path = "../fedimint/devimint" }
+#aead = { path = "../fedimint/aead" }
+#tbs = { path = "../fedimint/tbs" }
 
 [profile.dev]
 split-debuginfo = "packed"
