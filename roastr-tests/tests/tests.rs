@@ -92,7 +92,7 @@ async fn wait_for_nonces(
         let num_nonces = roastr.get_num_nonces().await?;
         let num_nonces = num_nonces
             .into_iter()
-            .find(|(_, num_nonces)| *num_nonces < 5);
+            .find(|(_, num_nonces)| *num_nonces < 1);
         match num_nonces {
             Some((peer_id, _)) => {
                 sleep_in_test(

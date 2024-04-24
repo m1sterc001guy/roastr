@@ -21,16 +21,16 @@ license-file = "LICENSE"
 keywords = ["bitcoin", "lightning", "chaumian", "e-cash", "federated"]
 
 [workspace.dependencies]
-fedimintd = { git = "https://github.com/fedimint/fedimint", rev = "007749b7b21b2792197b5e0dd370031da9ca179f" }
-fedimint-cli = { git = "https://github.com/fedimint/fedimint", rev = "007749b7b21b2792197b5e0dd370031da9ca179f" }
-fedimint-core = { git = "https://github.com/fedimint/fedimint", rev = "007749b7b21b2792197b5e0dd370031da9ca179f" }
-fedimint-server = { git = "https://github.com/fedimint/fedimint", rev = "007749b7b21b2792197b5e0dd370031da9ca179f" }
-fedimint-client = { git = "https://github.com/fedimint/fedimint", rev = "007749b7b21b2792197b5e0dd370031da9ca179f" }
-fedimint-logging = { git = "https://github.com/fedimint/fedimint", rev = "007749b7b21b2792197b5e0dd370031da9ca179f" }
-fedimint-testing = { git = "https://github.com/fedimint/fedimint", rev = "007749b7b21b2792197b5e0dd370031da9ca179f" }
-devimint = { git = "https://github.com/fedimint/fedimint", rev = "007749b7b21b2792197b5e0dd370031da9ca179f" }
-aead = { git = "https://github.com/fedimint/fedimint", rev = "007749b7b21b2792197b5e0dd370031da9ca179f" }
-tbs = { git = "https://github.com/fedimint/fedimint", rev = "007749b7b21b2792197b5e0dd370031da9ca179f" }
+fedimintd = { git = "https://github.com/fedimint/fedimint", rev = "33f80b29ca0640ed83d66d6823aa1e12f09da126" }
+fedimint-cli = { git = "https://github.com/fedimint/fedimint", rev = "33f80b29ca0640ed83d66d6823aa1e12f09da126" }
+fedimint-core = { git = "https://github.com/fedimint/fedimint", rev = "33f80b29ca0640ed83d66d6823aa1e12f09da126" }
+fedimint-server = { git = "https://github.com/fedimint/fedimint", rev = "33f80b29ca0640ed83d66d6823aa1e12f09da126" }
+fedimint-client = { git = "https://github.com/fedimint/fedimint", rev = "33f80b29ca0640ed83d66d6823aa1e12f09da126" }
+fedimint-logging = { git = "https://github.com/fedimint/fedimint", rev = "33f80b29ca0640ed83d66d6823aa1e12f09da126" }
+fedimint-testing = { git = "https://github.com/fedimint/fedimint", rev = "33f80b29ca0640ed83d66d6823aa1e12f09da126" }
+devimint = { git = "https://github.com/fedimint/fedimint", rev = "33f80b29ca0640ed83d66d6823aa1e12f09da126" }
+aead = { git = "https://github.com/fedimint/fedimint", rev = "33f80b29ca0640ed83d66d6823aa1e12f09da126" }
+tbs = { git = "https://github.com/fedimint/fedimint", rev = "33f80b29ca0640ed83d66d6823aa1e12f09da126" }
 threshold_crypto = { git = "https://github.com/fedimint/threshold_crypto" }
 
 clap = { version = "4.5.4", features = ["derive", "std", "help", "usage", "error-context", "suggestions", "env"], default-features = false }
