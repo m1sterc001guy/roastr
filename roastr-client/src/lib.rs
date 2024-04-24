@@ -358,7 +358,6 @@ impl RoastrClientModule {
 #[derive(Debug, Clone)]
 pub struct RoastrClientInit;
 
-#[apply(async_trait_maybe_send!)]
 impl fedimint_core::module::ModuleInit for RoastrClientInit {
     type Common = RoastrCommonInit;
     const DATABASE_VERSION: DatabaseVersion = DatabaseVersion(0);

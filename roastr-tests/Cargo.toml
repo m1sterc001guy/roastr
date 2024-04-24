@@ -14,9 +14,9 @@ path = "tests/tests.rs"
 [dependencies]
 anyhow = "1.0.66"
 fedimint-client = { workspace = true }
-fedimint-dummy-client = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
-fedimint-dummy-common = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
-fedimint-dummy-server = { git = "https://github.com/fedimint/fedimint", tag = "v0.3.0" }
+fedimint-dummy-client = { git = "https://github.com/fedimint/fedimint", rev = "007749b7b21b2792197b5e0dd370031da9ca179f" }
+fedimint-dummy-common = { git = "https://github.com/fedimint/fedimint", rev = "007749b7b21b2792197b5e0dd370031da9ca179f" }
+fedimint-dummy-server = { git = "https://github.com/fedimint/fedimint", rev = "007749b7b21b2792197b5e0dd370031da9ca179f" }
 fedimint-core = { workspace = true }
 roastr-client = { path = "../roastr-client" }
 roastr-common = { path = "../roastr-common" }

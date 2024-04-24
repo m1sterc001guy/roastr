@@ -54,12 +54,10 @@ pub struct RoastrInit {
     pub frost: Frost,
 }
 
-#[async_trait]
 impl ModuleInit for RoastrInit {
     type Common = RoastrCommonInit;
     const DATABASE_VERSION: DatabaseVersion = DatabaseVersion(1);
 
-    /// Dumps all database items for debugging
     async fn dump_database(
         &self,
         dbtx: &mut DatabaseTransaction<'_>,
@@ -402,22 +400,23 @@ impl ServerModule for Roastr {
                 let num_nonces = self.cfg.consensus.num_nonces;
                 let curr_nonces = nonces.len();
                 if curr_nonces < num_nonces as usize {
+                    dbtx.insert_new_entry(&NonceKey { peer_id, nonce }, &())
+                        .await;
+                    let curr_nonces = curr_nonces + 1;
                     tracing::info!(
                         ?my_peer_id,
                         ?peer_id,
                         ?curr_nonces,
                         "Processing Nonce Consensus Item"
                     );
-                    dbtx.insert_new_entry(&NonceKey { peer_id, nonce }, &())
-                        .await;
                 }
             }
             RoastrConsensusItem::SigningSession((unsigned_event, signing_session)) => {
                 // Deterministically dequeue the nonces from the pre-preared list and assign
                 // them to this signing session
-                let nonces = self.dequeue_nonces(dbtx, &signing_session).await?;
                 let event_id = unsigned_event.compute_id();
                 let my_peer_id = self.cfg.private.my_peer_id;
+                let nonces = self.dequeue_nonces(dbtx, &signing_session).await?;
                 tracing::info!(
                     ?my_peer_id,
                     ?peer_id,
@@ -680,6 +679,8 @@ impl Roastr {
             {
                 Some(nonce) => nonce,
                 None => {
+                    let my_peer_id = self.cfg.private.my_peer_id;
+                    tracing::error!(?my_peer_id, ?peer_id, "Not enough nonces for peer");
                     return Err(anyhow!("Not enough nonces for peer: {peer_id}"));
                 }
             };

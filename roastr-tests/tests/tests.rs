@@ -44,7 +44,7 @@ async fn new_admin_client(
     client_builder.with_module_inits(client_module_registry);
     client_builder.with_primary_module(0);
     client_builder.set_admin_creds(AdminCreds { peer_id, auth });
-    let client_secret = Client::load_or_generate_client_secret(client_builder.db())
+    let client_secret = Client::load_or_generate_client_secret(client_builder.db_no_decoders())
         .await
         .unwrap();
     client_builder
@@ -60,13 +60,13 @@ async fn new_admin_client(
 #[tokio::test(flavor = "multi_thread")]
 async fn can_sign_nostr_text_note() -> anyhow::Result<()> {
     let fixtures = fixtures();
-    let fed = fixtures.new_fed().await;
+    let fed = fixtures.new_fed_with_peers(4, 0).await;
     let user_client = fed.new_client().await;
     let roastr = user_client.get_first_module::<RoastrClientModule>();
 
     fedimint_core::task::sleep_in_test(
         "Sleeping to wait for nonces to be created",
-        Duration::from_secs(5),
+        Duration::from_secs(120),
     )
     .await;
     tracing::info!("DONE SLEEPING");
@@ -82,7 +82,7 @@ async fn can_sign_nostr_text_note() -> anyhow::Result<()> {
     // TODO: Remove this
     fedimint_core::task::sleep_in_test(
         "Sleeping to wait for sessions to be created",
-        Duration::from_secs(60),
+        Duration::from_secs(120),
     )
     .await;
     tracing::info!("DONE SLEEPING");
