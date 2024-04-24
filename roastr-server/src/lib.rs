@@ -31,7 +31,8 @@ use roastr_common::config::{
     RoastrConfigPrivate, RoastrGenParams,
 };
 use roastr_common::endpoint_constants::{
-    CREATE_NOTE_ENDPOINT, GET_EVENT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
+    CREATE_NOTE_ENDPOINT, GET_EVENT_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, GET_NUM_NONCES_ENDPOINT,
+    SIGN_NOTE_ENDPOINT,
 };
 use roastr_common::{
     peer_id_to_scalar, EventId, Frost, GetUnsignedEventRequest, NonceKeyPair, Point, PublicScalar,
@@ -344,15 +345,12 @@ impl ServerModule for Roastr {
             .collect::<Vec<_>>()
             .await;
 
-        // If the difference between `num_nonces` and `nonces` is positive, we need to
-        // produce some nonces as consensus items to pre-prepare the list of
-        // nonces.
-        let num_new_nonces = num_nonces as i32 - nonces.len() as i32;
-        for _ in 0..num_new_nonces {
+        if nonces.len() < num_nonces as usize {
             let nonce = NonceKeyPair::new(schnorr_fun::musig::NonceKeyPair::random(
                 &mut rand::rngs::OsRng,
             ));
             consensus_items.push(RoastrConsensusItem::Nonce(nonce));
+            tracing::info!(?my_peer_id, "Proposing new nonce consensus item");
         }
 
         // Query for signing sessions that have no nonces selected
@@ -389,33 +387,36 @@ impl ServerModule for Roastr {
     ) -> anyhow::Result<()> {
         match consensus_item {
             RoastrConsensusItem::Nonce(nonce) => {
-                // Check if we already have enough nonces for this peer
-                let nonces = dbtx
+                let my_peer_id = self.cfg.private.my_peer_id;
+                dbtx.insert_new_entry(&NonceKey { peer_id, nonce }, &())
+                    .await;
+
+                let num_nonces = dbtx
                     .find_by_prefix(&NoncePeerPrefix { peer_id })
                     .await
                     .collect::<Vec<_>>()
-                    .await;
+                    .await
+                    .len();
 
-                let my_peer_id = self.cfg.private.my_peer_id;
-                let num_nonces = self.cfg.consensus.num_nonces;
-                let curr_nonces = nonces.len();
-                if curr_nonces < num_nonces as usize {
-                    dbtx.insert_new_entry(&NonceKey { peer_id, nonce }, &())
-                        .await;
-                    let curr_nonces = curr_nonces + 1;
-                    tracing::info!(
-                        ?my_peer_id,
-                        ?peer_id,
-                        ?curr_nonces,
-                        "Processing Nonce Consensus Item"
-                    );
-                }
+                tracing::info!(
+                    ?my_peer_id,
+                    ?peer_id,
+                    ?num_nonces,
+                    "Processing Nonce Consensus Item"
+                );
             }
             RoastrConsensusItem::SigningSession((unsigned_event, signing_session)) => {
                 // Deterministically dequeue the nonces from the pre-preared list and assign
                 // them to this signing session
                 let event_id = unsigned_event.compute_id();
                 let my_peer_id = self.cfg.private.my_peer_id;
+                tracing::info!(
+                    ?my_peer_id,
+                    ?peer_id,
+                    ?signing_session,
+                    ?event_id,
+                    "Dequeuing nonces..."
+                );
                 let nonces = self.dequeue_nonces(dbtx, &signing_session).await?;
                 tracing::info!(
                     ?my_peer_id,
@@ -560,7 +561,7 @@ impl ServerModule for Roastr {
                 }
             },
             api_endpoint! {
-                GET_EVENT,
+                GET_EVENT_ENDPOINT,
                 ApiVersion::new(0, 0),
                 async |_module: &Roastr, context, event_request: GetUnsignedEventRequest| -> Option<UnsignedEvent> {
                     let mut dbtx = context.dbtx();
@@ -570,6 +571,29 @@ impl ServerModule for Roastr {
                         Some(nonces) => Ok(Some(nonces.unsigned_event)),
                         None => Ok(None),
                     }
+                }
+            },
+            api_endpoint! {
+                GET_NUM_NONCES_ENDPOINT,
+                ApiVersion::new(0, 0),
+                async |roastr: &Roastr, context, _v: ()| -> BTreeMap<PeerId, usize> {
+                    check_auth(context)?;
+                    let mut dbtx = context.dbtx();
+
+                    let all_peers = roastr.cfg.consensus.all_peers.clone();
+
+                    let mut nonces = BTreeMap::new();
+                    for peer_id in all_peers {
+                        let num_nonces = dbtx
+                            .find_by_prefix(&NoncePeerPrefix { peer_id })
+                            .await
+                            .collect::<Vec<_>>()
+                            .await
+                            .len();
+                        nonces.insert(peer_id, num_nonces);
+                    }
+
+                    Ok(nonces)
                 }
             },
         ]

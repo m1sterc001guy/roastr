@@ -22,7 +22,8 @@ use nostr_sdk::{
     Alphabet, Client, JsonUtil, Keys, Kind, SingleLetterTag, Tag, TagKind, ToBech32, Url,
 };
 use roastr_common::endpoint_constants::{
-    CREATE_NOTE_ENDPOINT, GET_EVENT, GET_EVENT_SESSIONS_ENDPOINT, SIGN_NOTE_ENDPOINT,
+    CREATE_NOTE_ENDPOINT, GET_EVENT_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, GET_NUM_NONCES_ENDPOINT,
+    SIGN_NOTE_ENDPOINT,
 };
 use roastr_common::{
     peer_id_to_scalar, EventId, Frost, GetUnsignedEventRequest, RoastrCommonInit, RoastrKey,
@@ -197,6 +198,7 @@ impl RoastrClientModule {
         event_id: EventId,
     ) -> anyhow::Result<BroadcastEventResponse> {
         let signed_event = self.create_signed_note(event_id).await?;
+        self.nostr_client.connect().await;
         self.nostr_client.send_event(signed_event).await?;
 
         let federation_npub = self.frost_key.public_key().to_bech32()?;
@@ -238,7 +240,7 @@ impl RoastrClientModule {
                 let unsigned_event: Option<UnsignedEvent> = self
                     .module_api
                     .request_current_consensus(
-                        GET_EVENT.to_string(),
+                        GET_EVENT_ENDPOINT.to_string(),
                         ApiRequestErased::new(GetUnsignedEventRequest {
                             event_id,
                             signing_session: SigningSession::new(sorted_peers),
@@ -291,6 +293,25 @@ impl RoastrClientModule {
         }
 
         Ok(signing_sessions)
+    }
+
+    pub async fn get_num_nonces(&self) -> anyhow::Result<BTreeMap<PeerId, usize>> {
+        let admin_auth = self
+            .admin_auth
+            .clone()
+            .ok_or(anyhow::anyhow!("Admin auth not set"))?;
+
+        // Request the peer to sign the event
+        let num_nonces = self
+            .module_api
+            .request_admin(
+                GET_NUM_NONCES_ENDPOINT,
+                ApiRequestErased::default(),
+                admin_auth,
+            )
+            .await?;
+
+        Ok(num_nonces)
     }
 
     fn create_frost_signature(
@@ -387,7 +408,6 @@ impl ClientModuleInit for RoastrClientInit {
         nostr_client
             .add_relay("wss://nostr.mutinywallet.com")
             .await?;
-        nostr_client.connect().await;
         Ok(RoastrClientModule {
             frost_key,
             module_api: args.module_api().clone(),

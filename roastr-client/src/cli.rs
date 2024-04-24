@@ -25,6 +25,7 @@ enum Commands {
         #[arg(long)]
         event_id: EventId,
     },
+    GetNumNonces,
 }
 
 pub(crate) async fn handle_cli_command(
@@ -52,6 +53,10 @@ pub(crate) async fn handle_cli_command(
         Commands::BroadcastNote { event_id } => {
             let broadcast_response = roastr.broadcast_note(event_id).await?;
             json!(broadcast_response)
+        }
+        Commands::GetNumNonces => {
+            let num_nonces = roastr.get_num_nonces().await?;
+            json!(num_nonces)
         }
     };
 
