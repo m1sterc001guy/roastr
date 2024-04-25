@@ -209,7 +209,7 @@ impl RoastrClientModule {
         })
     }
 
-    async fn sign_note(&self, event_id: EventId) -> anyhow::Result<()> {
+    pub async fn sign_note(&self, event_id: EventId) -> anyhow::Result<()> {
         let admin_auth = self
             .admin_auth
             .clone()

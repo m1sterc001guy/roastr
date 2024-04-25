@@ -16,8 +16,9 @@ use fedimint_dummy_server::DummyInit;
 use fedimint_logging::LOG_TEST;
 use fedimint_testing::federation::FederationTest;
 use fedimint_testing::fixtures::Fixtures;
-use roastr_client::{RoastrClientInit, RoastrClientModule};
+use roastr_client::{BroadcastEventResponse, RoastrClientInit, RoastrClientModule};
 use roastr_common::config::RoastrGenParams;
+use roastr_common::EventId;
 use roastr_server::RoastrInit;
 use schnorr_fun::frost;
 use sha2::Sha256;
@@ -87,7 +88,7 @@ async fn wait_for_nonces(
     admin_client: &Arc<ClientHandle>,
 ) -> anyhow::Result<()> {
     let roastr = admin_client.get_first_module::<RoastrClientModule>();
-    // Wait until this admin has heard of at least one nonce from each peer
+    // Wait until this admin has heard of at least one nonce from the peer
     loop {
         let num_nonces = roastr.get_num_nonces().await?;
         let num_nonces = num_nonces
@@ -110,44 +111,114 @@ async fn wait_for_nonces(
     Ok(())
 }
 
+async fn contains_expected_signing_sessions(
+    user_client: &Arc<ClientHandle>,
+    event_id: EventId,
+    expected_sessions: Vec<(&str, usize)>,
+) -> anyhow::Result<()> {
+    let roastr = user_client.get_first_module::<RoastrClientModule>();
+    let event_sessions = roastr.get_signing_sessions(event_id).await?;
+    for (expected_session, expected_shares) in expected_sessions.iter() {
+        match event_sessions.get(&expected_session.to_string()) {
+            Some(peer_nonces) => {
+                assert_eq!(
+                    peer_nonces.len(),
+                    *expected_shares,
+                    "Incorrect number of signature shares for session"
+                );
+            }
+            None => {
+                return Err(anyhow::anyhow!("Does not contain expected signing session"));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+async fn wait_for_signing_sessions(
+    user_client: &Arc<ClientHandle>,
+    event_id: EventId,
+    expected_sessions: Vec<(&str, usize)>,
+) -> anyhow::Result<()> {
+    loop {
+        match contains_expected_signing_sessions(user_client, event_id, expected_sessions.clone())
+            .await
+        {
+            Ok(_) => return Ok(()),
+            Err(_) => {
+                sleep_in_test(
+                    format!("EventID: {event_id:?} Waiting for expected signing sessions {expected_sessions:?}"),
+                    Duration::from_secs(1),
+                )
+                .await;
+            }
+        }
+    }
+}
+
 #[tokio::test(flavor = "multi_thread")]
-async fn can_sign_nostr_text_note() -> anyhow::Result<()> {
+async fn all_guardians_sign_note() -> anyhow::Result<()> {
     let num_peers = 4;
     let fixtures = fixtures();
     let fed = fixtures.new_fed_with_peers(num_peers, 0).await;
     let user_client = fed.new_client().await;
-    let roastr = user_client.get_first_module::<RoastrClientModule>();
 
     let admin_clients = create_admin_clients(&fed, num_peers, "pass".to_string()).await?;
 
-    // TODO: This can be done in parallel
+    // Wait for all clients to have nonces so that all ROAST signing sessions are
+    // created.
     for (peer_id, admin_client) in admin_clients.iter() {
         wait_for_nonces(peer_id, admin_client).await?;
     }
 
-    //let guardian0 = admin_clients.get(&0.into()).expect("Admin clients has
-    // guardian 0"); let roastr1 =
-    // guardian0.get_first_module::<RoastrClientModule>(); let event_id =
-    // roastr1.create_note("ROASTR".to_string()).await?; tracing::info!("Event:
-    // {event_id:?}");
+    // Create the note to be broadcasted to nostr
+    let guardian0 = admin_clients
+        .get(&0.into())
+        .expect("Admin clients has guardian 0");
+    let roastr0 = guardian0.get_first_module::<RoastrClientModule>();
+    let event_id = roastr0.create_note("ROASTR".to_string()).await?;
 
-    // TODO: Remove this
-    //fedimint_core::task::sleep_in_test(
-    //    "Sleeping to wait for sessions to be created",
-    //    Duration::from_secs(120),
-    //)
-    //.await;
-    //tracing::info!("DONE SLEEPING");
+    wait_for_signing_sessions(
+        &user_client,
+        event_id,
+        [("0,1,2", 1), ("0,1,3", 1), ("0,2,3", 1)].to_vec(),
+    )
+    .await?;
 
-    // Verify the correct sessions were created
-    //let event_sessions = roastr.get_signing_sessions(event_id).await?;
-    //tracing::info!("EventSessions: {event_sessions:?}");
-    //assert_eq!(event_sessions.len(), 3);
-    //let expected_sessions = ["0,1,2", "0,1,3", "0,2,3"];
-    //for session in expected_sessions {
-    //    assert!(event_sessions.contains_key(session), "Event Sessions did not
-    // contain {session}")
-    //}
+    // Sign with guardian 1
+    let guardian1 = admin_clients
+        .get(&1.into())
+        .expect("Admin clients has guardian 0");
+    let roastr1 = guardian1.get_first_module::<RoastrClientModule>();
+    roastr1.sign_note(event_id).await?;
+    wait_for_signing_sessions(
+        &user_client,
+        event_id,
+        [("0,1,2", 2), ("0,1,3", 2), ("0,2,3", 1), ("1,2,3", 1)].to_vec(),
+    )
+    .await?;
+
+    // Sign with guardian 3
+    let guardian3 = admin_clients
+        .get(&3.into())
+        .expect("Admin clients has guardian 0");
+    let roastr3 = guardian3.get_first_module::<RoastrClientModule>();
+    roastr3.sign_note(event_id).await?;
+    wait_for_signing_sessions(
+        &user_client,
+        event_id,
+        [("0,1,2", 2), ("0,1,3", 3), ("0,2,3", 2), ("1,2,3", 2)].to_vec(),
+    )
+    .await?;
+
+    // Combine signature shares and broadcast to nostr
+    let roastr = user_client.get_first_module::<RoastrClientModule>();
+    let BroadcastEventResponse {
+        federation_npub,
+        event_id,
+    } = roastr.broadcast_note(event_id).await?;
+    tracing::info!(?federation_npub, ?event_id, "Broadcasted note to Blastr");
 
     Ok(())
 }

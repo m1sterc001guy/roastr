@@ -14,9 +14,12 @@ path = "tests/tests.rs"
 [dependencies]
 anyhow = "1.0.66"
 fedimint-client = { workspace = true }
-fedimint-dummy-client = { git = "https://github.com/fedimint/fedimint", rev = "33f80b29ca0640ed83d66d6823aa1e12f09da126" }
-fedimint-dummy-common = { git = "https://github.com/fedimint/fedimint", rev = "33f80b29ca0640ed83d66d6823aa1e12f09da126" }
-fedimint-dummy-server = { git = "https://github.com/fedimint/fedimint", rev = "33f80b29ca0640ed83d66d6823aa1e12f09da126" }
+fedimint-dummy-client = { git = "https://github.com/m1sterc001guy/fedimint", rev = "fb745a5dee6af194fa229d5e9ff6c9c64e42a2a3" }
+fedimint-dummy-common = { git = "https://github.com/m1sterc001guy/fedimint", rev = "fb745a5dee6af194fa229d5e9ff6c9c64e42a2a3" }
+fedimint-dummy-server = { git = "https://github.com/m1sterc001guy/fedimint", rev = "fb745a5dee6af194fa229d5e9ff6c9c64e42a2a3" }
+#fedimint-dummy-client = { path = "../../fedimint/modules/fedimint-dummy-client" }
+#fedimint-dummy-common = { path = "../../fedimint/modules/fedimint-dummy-common" }
+#fedimint-dummy-server = { path = "../../fedimint/modules/fedimint-dummy-server" }
 fedimint-core = { workspace = true }
 roastr-client = { path = "../roastr-client" }
 roastr-common = { path = "../roastr-common" }

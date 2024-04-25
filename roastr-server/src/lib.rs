@@ -270,9 +270,7 @@ impl ServerModuleInit for RoastrInit {
             .finish_keygen(keygen.clone(), my_index, my_shares, pop_message)
             .expect("Finish keygen failed");
 
-        tracing::info!(
-            "MyIndex: {my_index} MySecretShare: {my_secret_share} FrostKey: {frost_key:?}"
-        );
+        tracing::info!(?peers.our_id, "DKG Finished successfully");
 
         let all_peers = BTreeSet::from_iter(peers.peer_ids().iter().cloned());
 
@@ -350,7 +348,6 @@ impl ServerModule for Roastr {
                 &mut rand::rngs::OsRng,
             ));
             consensus_items.push(RoastrConsensusItem::Nonce(nonce));
-            tracing::info!(?my_peer_id, "Proposing new nonce consensus item");
         }
 
         // Query for signing sessions that have no nonces selected
@@ -364,11 +361,6 @@ impl ServerModule for Roastr {
             // An empty signing session indicates that it was requested from this peer and
             // should be broadcasted to the other peers.
             if session.nonces.is_empty() {
-                tracing::info!(
-                    ?my_peer_id,
-                    ?session_key,
-                    "SIGNING SESSION CONSENSUS_PROPOSAL"
-                );
                 consensus_items.push(RoastrConsensusItem::SigningSession((
                     session.unsigned_event,
                     session_key.signing_session,
@@ -402,7 +394,7 @@ impl ServerModule for Roastr {
                     ?my_peer_id,
                     ?peer_id,
                     ?num_nonces,
-                    "Processing Nonce Consensus Item"
+                    "Processed Nonce Consensus Item"
                 );
             }
             RoastrConsensusItem::SigningSession((unsigned_event, signing_session)) => {
@@ -410,13 +402,6 @@ impl ServerModule for Roastr {
                 // them to this signing session
                 let event_id = unsigned_event.compute_id();
                 let my_peer_id = self.cfg.private.my_peer_id;
-                tracing::info!(
-                    ?my_peer_id,
-                    ?peer_id,
-                    ?signing_session,
-                    ?event_id,
-                    "Dequeuing nonces..."
-                );
                 let nonces = self.dequeue_nonces(dbtx, &signing_session).await?;
                 tracing::info!(
                     ?my_peer_id,
@@ -517,7 +502,7 @@ impl ServerModule for Roastr {
                     let my_peer_id = module.cfg.private.my_peer_id;
                     let mut sign_session_iter = SigningSessionIter::new(my_peer_id, &module.cfg.consensus);
                     while let Some(signing_session) = sign_session_iter.next() {
-                        info!("Creating signing session: {signing_session} for note {unsigned_event:?}");
+                        info!(?my_peer_id, ?signing_session, ?event_id, "Creating signing session...");
                         dbtx.insert_new_entry(&SessionNonceKey { event_id, signing_session }, &SessionNonces::new(unsigned_event.clone())).await;
                     }
 
@@ -649,13 +634,15 @@ impl Roastr {
                 .await
                 .is_some()
             {
-                tracing::info!(
-                    "Signature Share already exists for {event_id:?} for {signing_session}. Nothing to do."
+                tracing::warn!(
+                    ?event_id,
+                    ?signing_session,
+                    "Signature Share already exists. Nothing to do."
                 );
                 return;
             }
 
-            tracing::info!("Creating signature share for {event_id:?} for {signing_session}");
+            tracing::info!(?event_id, ?signing_session, "Creating signature share...");
             let sig_share = self
                 .create_sig_share(session_nonces.unsigned_event.clone(), session_nonces.nonces)
                 .await;
@@ -671,7 +658,6 @@ impl Roastr {
         } else {
             // No signing session exists, create a new one
             if let Some(unsigned_event) = self.get_unsigned_event_for_id(dbtx, event_id).await {
-                tracing::info!("Starting new sign session for {event_id:?} for {signing_session}");
                 dbtx.insert_new_entry(
                     &SessionNonceKey {
                         event_id,
