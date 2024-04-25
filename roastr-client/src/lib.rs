@@ -370,13 +370,13 @@ impl RoastrClientModule {
 
 pub async fn create_federation_announcement(
     client: ClientHandleArc,
-    roastr: &RoastrClientModule,
     description: Option<String>,
 ) -> anyhow::Result<EventId> {
     let federation_id = client.federation_id();
     let wallet_client = client.get_first_module::<WalletClientModule>();
     let network = wallet_client.get_network();
 
+    let roastr = client.get_first_module::<RoastrClientModule>();
     let total_peers = roastr.module_api.all_peers();
     let mut invite_codes = Vec::new();
     for peer_id in total_peers {

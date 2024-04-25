@@ -64,7 +64,7 @@ pub(crate) async fn handle_cli_command(
             json!(num_nonces)
         }
         Commands::CreateFederationAnnouncement { description } => {
-            let event_id = create_federation_announcement(client, roastr, description).await?;
+            let event_id = create_federation_announcement(client, description).await?;
             json!({
                 "event_id": event_id,
             })

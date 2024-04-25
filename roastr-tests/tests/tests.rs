@@ -16,7 +16,12 @@ use fedimint_dummy_server::DummyInit;
 use fedimint_logging::LOG_TEST;
 use fedimint_testing::federation::FederationTest;
 use fedimint_testing::fixtures::Fixtures;
-use roastr_client::{BroadcastEventResponse, RoastrClientInit, RoastrClientModule};
+use fedimint_wallet_client::WalletClientInit;
+use fedimint_wallet_common::config::WalletGenParams;
+use fedimint_wallet_server::WalletInit;
+use roastr_client::{
+    create_federation_announcement, BroadcastEventResponse, RoastrClientInit, RoastrClientModule,
+};
 use roastr_common::config::RoastrGenParams;
 use roastr_common::EventId;
 use roastr_server::RoastrInit;
@@ -25,14 +30,17 @@ use sha2::Sha256;
 use tracing::info;
 
 fn fixtures() -> Fixtures {
-    let fixtures = Fixtures::new_primary(DummyClientInit, DummyInit, DummyGenParams::default());
-    fixtures.with_module(
+    let mut fixtures = Fixtures::new_primary(DummyClientInit, DummyInit, DummyGenParams::default());
+    fixtures = fixtures.with_module(
         RoastrClientInit,
         RoastrInit {
             frost: frost::new_with_synthetic_nonces::<Sha256, rand::rngs::OsRng>(),
         },
         RoastrGenParams::default(),
-    )
+    );
+    let wallet_params = WalletGenParams::regtest(fixtures.bitcoin_server());
+    let wallet_client = WalletClientInit::new(fixtures.bitcoin_client());
+    fixtures.with_module(wallet_client, WalletInit, wallet_params)
 }
 
 async fn new_admin_client(
@@ -44,6 +52,7 @@ async fn new_admin_client(
     let mut client_builder = Client::builder(MemDatabase::new().into());
     let mut client_module_registry = ClientModuleInitRegistry::new();
     client_module_registry.attach(DummyClientInit);
+    client_module_registry.attach(WalletClientInit::default());
     client_module_registry.attach(RoastrClientInit);
     client_builder.with_module_inits(client_module_registry);
     client_builder.with_primary_module(0);
@@ -239,6 +248,79 @@ async fn all_guardians_sign_note() -> anyhow::Result<()> {
         .expect("Admin clients has guardian 0");
     let roastr0 = guardian0.get_first_module::<RoastrClientModule>();
     let event_id = roastr0.create_note("ROASTR".to_string()).await?;
+
+    wait_for_signing_sessions(
+        &user_client,
+        event_id,
+        [("0,1,2", 1), ("0,1,3", 1), ("0,2,3", 1)].to_vec(),
+    )
+    .await?;
+
+    // Sign with guardian 1
+    let guardian1 = admin_clients
+        .get(&1.into())
+        .expect("Admin clients has guardian 1");
+    let roastr1 = guardian1.get_first_module::<RoastrClientModule>();
+    roastr1.sign_note(event_id).await?;
+    wait_for_signing_sessions(
+        &user_client,
+        event_id,
+        [("0,1,2", 2), ("0,1,3", 2), ("0,2,3", 1), ("1,2,3", 1)].to_vec(),
+    )
+    .await?;
+
+    // Sign with guardian 3
+    let guardian3 = admin_clients
+        .get(&3.into())
+        .expect("Admin clients has guardian 3");
+    let roastr3 = guardian3.get_first_module::<RoastrClientModule>();
+    roastr3.sign_note(event_id).await?;
+    wait_for_signing_sessions(
+        &user_client,
+        event_id,
+        [("0,1,2", 2), ("0,1,3", 3), ("0,2,3", 2), ("1,2,3", 2)].to_vec(),
+    )
+    .await?;
+
+    // Combine signature shares and broadcast to nostr
+    let roastr = user_client.get_first_module::<RoastrClientModule>();
+    let BroadcastEventResponse {
+        federation_npub,
+        event_id,
+    } = roastr.broadcast_note(event_id).await?;
+    tracing::info!(
+        ?federation_npub,
+        ?event_id,
+        "Success. Broadcasted note to Blastr"
+    );
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn all_guardians_sign_federation_announcement() -> anyhow::Result<()> {
+    let num_peers = 4;
+    let fixtures = fixtures();
+    let fed = fixtures.new_fed_with_peers(num_peers, 0).await;
+    let user_client = fed.new_client().await;
+
+    let admin_clients = create_admin_clients(&fed, num_peers, "pass".to_string()).await?;
+
+    // Wait for all clients to have nonces so that all ROAST signing sessions are
+    // created.
+    for (peer_id, admin_client) in admin_clients.iter() {
+        wait_for_nonces(peer_id, admin_client, [].into_iter().collect()).await?;
+    }
+
+    // Create the note to be broadcasted to nostr
+    let guardian0 = admin_clients
+        .get(&0.into())
+        .expect("Admin clients has guardian 0");
+    let event_id = create_federation_announcement(
+        guardian0.clone(),
+        Some("Testing Roastr Federation Announcements".to_string()),
+    )
+    .await?;
 
     wait_for_signing_sessions(
         &user_client,
