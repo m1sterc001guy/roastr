@@ -402,44 +402,63 @@ impl ServerModule for Roastr {
                 // them to this signing session
                 let event_id = unsigned_event.compute_id();
                 let my_peer_id = self.cfg.private.my_peer_id;
-                let nonces = self.dequeue_nonces(dbtx, &signing_session).await?;
-                tracing::info!(
-                    ?my_peer_id,
-                    ?peer_id,
-                    ?signing_session,
-                    ?event_id,
-                    "Inserting nonces into signing session"
-                );
-                dbtx.insert_entry(
-                    &SessionNonceKey {
-                        event_id,
-                        signing_session: signing_session.clone(),
-                    },
-                    &SessionNonces {
-                        nonces: nonces.clone(),
-                        unsigned_event: unsigned_event.clone(),
-                    },
-                )
-                .await;
+                match self.dequeue_nonces(dbtx, &signing_session).await {
+                    Ok(nonces) => {
+                        tracing::info!(
+                            ?my_peer_id,
+                            ?peer_id,
+                            ?signing_session,
+                            ?event_id,
+                            "Inserting nonces into signing session"
+                        );
+                        dbtx.insert_entry(
+                            &SessionNonceKey {
+                                event_id,
+                                signing_session: signing_session.clone(),
+                            },
+                            &SessionNonces {
+                                nonces: nonces.clone(),
+                                unsigned_event: unsigned_event.clone(),
+                            },
+                        )
+                        .await;
 
-                // If this signing session was submitted by ourself, we should also create a
-                // signature share
-                if peer_id == my_peer_id {
-                    tracing::info!(
-                        ?my_peer_id,
-                        ?signing_session,
-                        ?event_id,
-                        "Creating signature share"
-                    );
-                    let sig_share = self.create_sig_share(unsigned_event.clone(), nonces).await;
-                    dbtx.insert_new_entry(
-                        &SignatureShareKey {
+                        // If this signing session was submitted by ourself, we should also create a
+                        // signature share
+                        if peer_id == my_peer_id {
+                            tracing::info!(
+                                ?my_peer_id,
+                                ?signing_session,
+                                ?event_id,
+                                "Creating signature share"
+                            );
+                            let sig_share =
+                                self.create_sig_share(unsigned_event.clone(), nonces).await;
+                            dbtx.insert_new_entry(
+                                &SignatureShareKey {
+                                    event_id,
+                                    signing_session,
+                                },
+                                &sig_share,
+                            )
+                            .await;
+                        }
+                    }
+                    Err(err) => {
+                        // Delete the signing session if we cannot find nonces so we don't keep
+                        // proposing this signing session
+                        dbtx.remove_entry(&SessionNonceKey {
                             event_id,
-                            signing_session,
-                        },
-                        &sig_share,
-                    )
-                    .await;
+                            signing_session: signing_session.clone(),
+                        })
+                        .await;
+                        tracing::warn!(
+                            ?my_peer_id,
+                            ?signing_session,
+                            ?event_id,
+                            "Could not process signing session: {err}"
+                        );
+                    }
                 }
             }
         }
@@ -689,8 +708,6 @@ impl Roastr {
             {
                 Some(nonce) => nonce,
                 None => {
-                    let my_peer_id = self.cfg.private.my_peer_id;
-                    tracing::error!(?my_peer_id, ?peer_id, "Not enough nonces for peer");
                     return Err(anyhow!("Not enough nonces for peer: {peer_id}"));
                 }
             };

@@ -273,7 +273,7 @@ impl RoastrClientModule {
             .request_with_strategy(
                 ThresholdOrDeadline::new(
                     total_peers,
-                    fedimint_core::time::now() + Duration::from_secs(60),
+                    fedimint_core::time::now() + Duration::from_secs(1),
                 ),
                 GET_EVENT_SESSIONS_ENDPOINT.to_string(),
                 ApiRequestErased::new(event_id),

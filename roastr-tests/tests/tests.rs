@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -86,9 +86,11 @@ async fn create_admin_clients(
 async fn wait_for_nonces(
     curr_peer_id: &PeerId,
     admin_client: &Arc<ClientHandle>,
+    peers_to_ignore: HashSet<PeerId>,
 ) -> anyhow::Result<()> {
     let roastr = admin_client.get_first_module::<RoastrClientModule>();
-    // Wait until this admin has heard of at least one nonce from the peer
+    // Wait until this admin has heard of at least one nonce from the peer (except
+    // for peers in `peers_to_ignore`)
     loop {
         let num_nonces = roastr.get_num_nonces().await?;
         let num_nonces = num_nonces
@@ -96,6 +98,10 @@ async fn wait_for_nonces(
             .find(|(_, num_nonces)| *num_nonces < 1);
         match num_nonces {
             Some((peer_id, _)) => {
+                if peers_to_ignore.contains(&peer_id) {
+                    break;
+                }
+
                 sleep_in_test(
                     format!("Peer {curr_peer_id} waiting for a nonce from {peer_id}"),
                     Duration::from_secs(1),
@@ -158,6 +164,61 @@ async fn wait_for_signing_sessions(
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn can_sign_with_degraded() -> anyhow::Result<()> {
+    let fixtures = fixtures();
+    // `new_fed` always creates a 4 member federation with one guardian offline
+    let fed = fixtures.new_fed().await;
+    let user_client = fed.new_client().await;
+
+    let admin_clients = create_admin_clients(&fed, 3, "pass".to_string()).await?;
+
+    // Wait for all clients to have nonces so that all ROAST signing sessions are
+    // created.
+    for (peer_id, admin_client) in admin_clients.iter() {
+        wait_for_nonces(peer_id, admin_client, [3.into()].into_iter().collect()).await?;
+    }
+
+    // Create the note to be broadcasted to nostr
+    let guardian0 = admin_clients
+        .get(&0.into())
+        .expect("Admin clients has guardian 0");
+    let roastr0 = guardian0.get_first_module::<RoastrClientModule>();
+    let event_id = roastr0.create_note("ROASTR".to_string()).await?;
+
+    wait_for_signing_sessions(&user_client, event_id, [("0,1,2", 1)].to_vec()).await?;
+
+    // Sign with guardian 1
+    let guardian1 = admin_clients
+        .get(&1.into())
+        .expect("Admin clients has guardian 1");
+    let roastr1 = guardian1.get_first_module::<RoastrClientModule>();
+    roastr1.sign_note(event_id).await?;
+    wait_for_signing_sessions(&user_client, event_id, [("0,1,2", 2)].to_vec()).await?;
+
+    // Sign with guardian 2
+    let guardian2 = admin_clients
+        .get(&2.into())
+        .expect("Admin clients has guardian 2");
+    let roastr2 = guardian2.get_first_module::<RoastrClientModule>();
+    roastr2.sign_note(event_id).await?;
+    wait_for_signing_sessions(&user_client, event_id, [("0,1,2", 3)].to_vec()).await?;
+
+    // Combine signature shares and broadcast to nostr
+    let roastr = user_client.get_first_module::<RoastrClientModule>();
+    let BroadcastEventResponse {
+        federation_npub,
+        event_id,
+    } = roastr.broadcast_note(event_id).await?;
+    tracing::info!(
+        ?federation_npub,
+        ?event_id,
+        "Success. Broadcasted note to Blastr"
+    );
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn all_guardians_sign_note() -> anyhow::Result<()> {
     let num_peers = 4;
     let fixtures = fixtures();
@@ -169,7 +230,7 @@ async fn all_guardians_sign_note() -> anyhow::Result<()> {
     // Wait for all clients to have nonces so that all ROAST signing sessions are
     // created.
     for (peer_id, admin_client) in admin_clients.iter() {
-        wait_for_nonces(peer_id, admin_client).await?;
+        wait_for_nonces(peer_id, admin_client, [].into_iter().collect()).await?;
     }
 
     // Create the note to be broadcasted to nostr
@@ -189,7 +250,7 @@ async fn all_guardians_sign_note() -> anyhow::Result<()> {
     // Sign with guardian 1
     let guardian1 = admin_clients
         .get(&1.into())
-        .expect("Admin clients has guardian 0");
+        .expect("Admin clients has guardian 1");
     let roastr1 = guardian1.get_first_module::<RoastrClientModule>();
     roastr1.sign_note(event_id).await?;
     wait_for_signing_sessions(
@@ -202,7 +263,7 @@ async fn all_guardians_sign_note() -> anyhow::Result<()> {
     // Sign with guardian 3
     let guardian3 = admin_clients
         .get(&3.into())
-        .expect("Admin clients has guardian 0");
+        .expect("Admin clients has guardian 3");
     let roastr3 = guardian3.get_first_module::<RoastrClientModule>();
     roastr3.sign_note(event_id).await?;
     wait_for_signing_sessions(
@@ -218,7 +279,11 @@ async fn all_guardians_sign_note() -> anyhow::Result<()> {
         federation_npub,
         event_id,
     } = roastr.broadcast_note(event_id).await?;
-    tracing::info!(?federation_npub, ?event_id, "Broadcasted note to Blastr");
+    tracing::info!(
+        ?federation_npub,
+        ?event_id,
+        "Success. Broadcasted note to Blastr"
+    );
 
     Ok(())
 }
