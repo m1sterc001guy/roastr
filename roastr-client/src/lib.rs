@@ -113,6 +113,7 @@ pub struct BroadcastEventResponse {
 }
 
 impl RoastrClientModule {
+    /// Creates a Nostr Text note and proposes it to consensus for signing.
     pub async fn create_note(&self, text: String) -> anyhow::Result<EventId> {
         let public_key = self.frost_key.public_key();
         let unsigned_event = UnsignedEvent::new(
@@ -121,6 +122,8 @@ impl RoastrClientModule {
         self.request_create_note(unsigned_event).await
     }
 
+    /// Requests the guardians of the federation to sign the Nostr
+    /// `UnsignedEvent`.
     async fn request_create_note(&self, unsigned_event: UnsignedEvent) -> anyhow::Result<EventId> {
         let admin_auth = self
             .admin_auth
@@ -136,6 +139,8 @@ impl RoastrClientModule {
         Ok(unsigned_event.compute_id())
     }
 
+    /// Creates a Federation Announcement Nostr note and proposes it to
+    /// consensus for signing.
     pub async fn create_federation_announcement(
         &self,
         name: Option<&str>,
@@ -185,6 +190,9 @@ impl RoastrClientModule {
         self.request_create_note(unsigned_event).await
     }
 
+    /// Checks the number of signature shares for the note with `event_id`.
+    /// Constructs the combined signature and attaches it to the Nostr note.
+    /// Finally, the note will be broadcasted to Nostr.
     pub async fn broadcast_note(
         &self,
         event_id: EventId,
@@ -201,6 +209,8 @@ impl RoastrClientModule {
         })
     }
 
+    /// Creates a signature share for a single peer for the note with
+    /// `event_id`.
     pub async fn sign_note(&self, event_id: EventId) -> anyhow::Result<()> {
         let admin_auth = self
             .admin_auth
@@ -218,9 +228,14 @@ impl RoastrClientModule {
         Ok(())
     }
 
-    pub async fn create_signed_note(&self, event_id: EventId) -> anyhow::Result<nostr_sdk::Event> {
-        // Check if we can create a signature
+    /// Creates a signed Nostr note by checking if enough signature shares have
+    /// been provided by the guardians. If enough signature shares are
+    /// available, the combined schnorr signature is created and attached to
+    /// the Nostr event.
+    async fn create_signed_note(&self, event_id: EventId) -> anyhow::Result<nostr_sdk::Event> {
         let threshold = self.frost_key.threshold();
+        // Verify that at least a `threshold` number of signature shares have been
+        // provided, otherwise we cannot sign the note.
         let signing_sessions = self.get_signing_sessions(event_id).await?;
         for (peers, signatures) in signing_sessions {
             let sorted_peers = peers
@@ -255,6 +270,8 @@ impl RoastrClientModule {
         Err(anyhow::anyhow!("Not enough signatures for note"))
     }
 
+    /// Queries all peers and retrieves the signing sessions that have been
+    /// created in consensus.
     pub async fn get_signing_sessions(
         &self,
         event_id: EventId,
@@ -287,6 +304,8 @@ impl RoastrClientModule {
         Ok(signing_sessions)
     }
 
+    /// Queries a specific peer for the number of nonces that have been
+    /// processed through consensus from other peers.
     pub async fn get_num_nonces(&self) -> anyhow::Result<BTreeMap<PeerId, usize>> {
         let admin_auth = self
             .admin_auth
@@ -306,6 +325,8 @@ impl RoastrClientModule {
         Ok(num_nonces)
     }
 
+    /// Creates a combined FROST signature under `frost_key` by combining the
+    /// signature `shares` together.
     fn create_frost_signature(
         &self,
         shares: BTreeMap<PeerId, SignatureShare>,
@@ -351,6 +372,7 @@ impl RoastrClientModule {
             .map(|(_, sig_share)| sig_share.share.mark_zero_choice())
             .collect::<Vec<_>>();
 
+        // Combine all signature shares into a single schnorr signature.
         let combined_sig =
             self.frost
                 .combine_signature_shares(&xonly_frost_key, &session, frost_shares);
@@ -368,6 +390,8 @@ impl RoastrClientModule {
     }
 }
 
+/// Creates a Federation Announcement Nostr note by querying other modules for
+/// the necessary data and requests the guardians to sign it.
 pub async fn create_federation_announcement(
     client: ClientHandleArc,
     description: Option<String>,
@@ -437,6 +461,7 @@ impl ClientModuleInit for RoastrClientInit {
         let frost_key = args.cfg().frost_key.clone();
         let keys = Keys::from_public_key(frost_key.public_key());
         let nostr_client = Client::new(&keys);
+        // "Blastr" relay
         nostr_client
             .add_relay("wss://nostr.mutinywallet.com")
             .await?;

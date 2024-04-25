@@ -29,6 +29,8 @@ use schnorr_fun::frost;
 use sha2::Sha256;
 use tracing::info;
 
+/// Creates the test fixtures by attaching the Dummy, Roastr, and Wallet
+/// modules.
 fn fixtures() -> Fixtures {
     let mut fixtures = Fixtures::new_primary(DummyClientInit, DummyInit, DummyGenParams::default());
     fixtures = fixtures.with_module(
@@ -43,6 +45,9 @@ fn fixtures() -> Fixtures {
     fixtures.with_module(wallet_client, WalletInit, wallet_params)
 }
 
+/// Creates a new admin client given the `ClientConfig`. This is a workaround
+/// and should not be necessary once `FederationTest::new_admin_client` is
+/// available.
 async fn new_admin_client(
     client_config: ClientConfig,
     peer_id: PeerId,
@@ -70,6 +75,7 @@ async fn new_admin_client(
         .expect("Failed to build client")
 }
 
+/// Creates a admin client for every peer in the federation.
 async fn create_admin_clients(
     fed: &FederationTest,
     num_peers: u16,
@@ -92,6 +98,9 @@ async fn create_admin_clients(
     Ok(admin_clients)
 }
 
+/// For the given `curr_peer_id`, this function will wait until that peer has
+/// processed a nonce consensus item from every other peer in the federation,
+/// except if instructed to ignore peers in `peers_to_ignore`.
 async fn wait_for_nonces(
     curr_peer_id: &PeerId,
     admin_client: &Arc<ClientHandle>,
@@ -126,6 +135,8 @@ async fn wait_for_nonces(
     Ok(())
 }
 
+/// Queries all peers to check if a given signing sessions exist and verifies if
+/// each signing session has the expected number of signature shares.
 async fn contains_expected_signing_sessions(
     user_client: &Arc<ClientHandle>,
     event_id: EventId,
@@ -151,6 +162,8 @@ async fn contains_expected_signing_sessions(
     Ok(())
 }
 
+/// Waits for the given signing session to exist in consensus and verifies that
+/// each signing session has the expected number of signature shares.
 async fn wait_for_signing_sessions(
     user_client: &Arc<ClientHandle>,
     event_id: EventId,

@@ -343,6 +343,8 @@ impl ServerModule for Roastr {
             .collect::<Vec<_>>()
             .await;
 
+        // Propose a nonce consensus item if we are below the pre-configured threshold
+        // number of nonces
         if nonces.len() < num_nonces as usize {
             let nonce = NonceKeyPair::new(schnorr_fun::musig::NonceKeyPair::random(
                 &mut rand::rngs::OsRng,
@@ -446,12 +448,13 @@ impl ServerModule for Roastr {
                     }
                     Err(err) => {
                         // Delete the signing session if we cannot find nonces so we don't keep
-                        // proposing this signing session
+                        // proposing the same signing session when a node is offline.
                         dbtx.remove_entry(&SessionNonceKey {
                             event_id,
                             signing_session: signing_session.clone(),
                         })
                         .await;
+
                         tracing::warn!(
                             ?my_peer_id,
                             ?signing_session,
@@ -789,6 +792,9 @@ impl SigningSessionIter {
     fn new(peer_id: PeerId, consensus: &RoastrConfigConsensus) -> SigningSessionIter {
         let all_peers = consensus.all_peers.clone();
         let threshold = consensus.frost_key.threshold();
+
+        // ROAST requires starting signing sessions for all combinations of peers where
+        // `peer_id` exists in the signing session.
         let combination_iter = all_peers
             .into_iter()
             .combinations(threshold)
