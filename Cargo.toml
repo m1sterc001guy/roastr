@@ -21,20 +21,21 @@ license-file = "LICENSE"
 keywords = ["bitcoin", "lightning", "chaumian", "e-cash", "federated"]
 
 [workspace.dependencies]
-fedimintd = { git = "https://github.com/m1sterc001guy/fedimint", rev = "fb745a5dee6af194fa229d5e9ff6c9c64e42a2a3" }
-fedimint-cli = { git = "https://github.com/m1sterc001guy/fedimint", rev = "fb745a5dee6af194fa229d5e9ff6c9c64e42a2a3" }
-fedimint-core = { git = "https://github.com/m1sterc001guy/fedimint", rev = "fb745a5dee6af194fa229d5e9ff6c9c64e42a2a3" }
-fedimint-server = { git = "https://github.com/m1sterc001guy/fedimint", rev = "fb745a5dee6af194fa229d5e9ff6c9c64e42a2a3" }
-fedimint-client = { git = "https://github.com/m1sterc001guy/fedimint", rev = "fb745a5dee6af194fa229d5e9ff6c9c64e42a2a3" }
-fedimint-logging = { git = "https://github.com/m1sterc001guy/fedimint", rev = "fb745a5dee6af194fa229d5e9ff6c9c64e42a2a3" }
-fedimint-testing = { git = "https://github.com/m1sterc001guy/fedimint", rev = "fb745a5dee6af194fa229d5e9ff6c9c64e42a2a3" }
-devimint = { git = "https://github.com/m1sterc001guy/fedimint", rev = "fb745a5dee6af194fa229d5e9ff6c9c64e42a2a3" }
-aead = { git = "https://github.com/m1sterc001guy/fedimint", rev = "fb745a5dee6af194fa229d5e9ff6c9c64e42a2a3" }
-tbs = { git = "https://github.com/m1sterc001guy/fedimint", rev = "fb745a5dee6af194fa229d5e9ff6c9c64e42a2a3" }
+fedimintd = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
+fedimint-cli = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
+fedimint-core = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
+fedimint-server = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
+fedimint-client = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
+fedimint-logging = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
+fedimint-testing = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
+devimint = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
+aead = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
+tbs = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
 threshold_crypto = { git = "https://github.com/fedimint/threshold_crypto" }
 
 clap = { version = "4.5.4", features = ["derive", "std", "help", "usage", "error-context", "suggestions", "env"], default-features = false }
 nostr-sdk = "0.30.0"
+bitcoin = "0.29.2"
 
 # Comment above lines and uncomment these to work with local fedimint dependencies
 #fedimintd = { path = "../fedimint/fedimintd" }

@@ -3,12 +3,14 @@ use std::ffi;
 use std::ops::Deref;
 use std::time::Duration;
 
+use bitcoin::Network;
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
 use fedimint_client::module::{ClientModule, IClientModule};
 use fedimint_client::sm::{Context, DynState, State};
-use fedimint_client::DynGlobalClientContext;
+use fedimint_client::{ClientHandleArc, DynGlobalClientContext};
 use fedimint_core::api::{DynModuleApi, FederationApiExt};
+use fedimint_core::config::{ClientModuleConfig, FederationId};
 use fedimint_core::core::{Decoder, IntoDynInstance, ModuleInstanceId, OperationId};
 use fedimint_core::db::{DatabaseTransaction, DatabaseVersion};
 use fedimint_core::encoding::{Decodable, Encodable};
@@ -17,6 +19,7 @@ use fedimint_core::module::{
 };
 use fedimint_core::query::ThresholdOrDeadline;
 use fedimint_core::{apply, async_trait_maybe_send, NumPeersExt, PeerId};
+use fedimint_wallet_client::WalletClientModule;
 use nostr_sdk::secp256k1::schnorr::Signature;
 use nostr_sdk::{
     Alphabet, Client, JsonUtil, Keys, Kind, SingleLetterTag, Tag, TagKind, ToBech32, Url,
@@ -97,8 +100,9 @@ impl ClientModule for RoastrClientModule {
     async fn handle_cli_command(
         &self,
         args: &[ffi::OsString],
+        client: ClientHandleArc,
     ) -> anyhow::Result<serde_json::Value> {
-        cli::handle_cli_command(self, args).await
+        cli::handle_cli_command(self, args, client).await
     }
 }
 
@@ -110,14 +114,18 @@ pub struct BroadcastEventResponse {
 
 impl RoastrClientModule {
     pub async fn create_note(&self, text: String) -> anyhow::Result<EventId> {
-        let admin_auth = self
-            .admin_auth
-            .clone()
-            .ok_or(anyhow::anyhow!("Admin auth not set"))?;
         let public_key = self.frost_key.public_key();
         let unsigned_event = UnsignedEvent::new(
             nostr_sdk::EventBuilder::text_note(text, []).to_unsigned_event(public_key),
         );
+        self.request_create_note(unsigned_event).await
+    }
+
+    async fn request_create_note(&self, unsigned_event: UnsignedEvent) -> anyhow::Result<EventId> {
+        let admin_auth = self
+            .admin_auth
+            .clone()
+            .ok_or(anyhow::anyhow!("Admin auth not set"))?;
         self.module_api
             .request_admin(
                 CREATE_NOTE_ENDPOINT,
@@ -130,14 +138,14 @@ impl RoastrClientModule {
 
     pub async fn create_federation_announcement(
         &self,
-        name: Option<String>,
+        name: Option<&str>,
         picture: Option<String>,
         about: Option<String>,
+        federation_id: FederationId,
+        network: Network,
+        modules: Vec<String>,
+        invite_codes: Vec<String>,
     ) -> anyhow::Result<EventId> {
-        let admin_auth = self
-            .admin_auth
-            .clone()
-            .ok_or(anyhow::anyhow!("Admin auth not set"))?;
         let public_key = self.frost_key.public_key();
         let metadata = {
             let mut m = nostr_sdk::nostr::Metadata::default();
@@ -153,20 +161,12 @@ impl RoastrClientModule {
             m
         };
 
-        // todo figure out how to get federation_id
-        let d_tag = Tag::Identifier("federation_id".to_string());
-        // todo get network
+        let d_tag = Tag::Identifier(federation_id.to_string());
         let n_tag = Tag::Generic(
             TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::N)),
-            vec!["signet".to_string()],
+            vec![network.to_string()],
         );
-        // todo get other modules
-        let modules_tag = Tag::Generic(
-            TagKind::Custom("modules".to_string()),
-            vec!["mint,lightning,wallet,nostr".to_string()],
-        );
-        // todo get all invite codes
-        let invite_codes = vec!["fed11abc...".to_string(), "fed11xyz...".to_string()];
+        let modules_tag = Tag::Generic(TagKind::Custom("modules".to_string()), modules);
         let u_tags = invite_codes.into_iter().map(|code| {
             Tag::Generic(
                 TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::U)),
@@ -182,15 +182,7 @@ impl RoastrClientModule {
                 .to_unsigned_event(public_key.into()),
         );
 
-        self.module_api
-            .request_admin(
-                CREATE_NOTE_ENDPOINT,
-                ApiRequestErased::new(unsigned_event.clone()),
-                admin_auth,
-            )
-            .await?;
-
-        Ok(unsigned_event.compute_id())
+        self.request_create_note(unsigned_event).await
     }
 
     pub async fn broadcast_note(
@@ -374,6 +366,46 @@ impl RoastrClientModule {
 
         Some(combined_sig)
     }
+}
+
+pub async fn create_federation_announcement(
+    client: ClientHandleArc,
+    roastr: &RoastrClientModule,
+    description: Option<String>,
+) -> anyhow::Result<EventId> {
+    let federation_id = client.federation_id();
+    let wallet_client = client.get_first_module::<WalletClientModule>();
+    let network = wallet_client.get_network();
+
+    let total_peers = roastr.module_api.all_peers();
+    let mut invite_codes = Vec::new();
+    for peer_id in total_peers {
+        let invite_code = client
+            .get_config()
+            .invite_code(&peer_id)
+            .ok_or(anyhow::anyhow!("Peer {peer_id} does not exist"))?;
+        invite_codes.push(invite_code.to_string());
+    }
+
+    let federation_name = client.get_config().global.federation_name();
+
+    let module_list: Vec<String> = client
+        .get_config()
+        .modules
+        .iter()
+        .map(|(_id, ClientModuleConfig { kind, .. })| kind.to_string())
+        .collect();
+    roastr
+        .create_federation_announcement(
+            federation_name,
+            None,
+            description,
+            federation_id,
+            network,
+            module_list,
+            invite_codes,
+        )
+        .await
 }
 
 #[derive(Debug, Clone)]
