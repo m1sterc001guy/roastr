@@ -1400,6 +1400,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "fedimint-build"
+version = "0.4.0-alpha"
+source = "git+https://github.com/fedimint/fedimint#d778ae8f23ec7d347d68d17ea5ccc9bdd1c4cee2"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "fedimint-cli"
 version = "0.4.0-alpha"
 source = "git+https://github.com/m1sterc001guy/fedimint?rev=2541b9705aefde724d55683aa46fb6997d312d7e#2541b9705aefde724d55683aa46fb6997d312d7e"
@@ -1413,7 +1421,7 @@ dependencies = [
  "clap_complete",
  "fedimint-aead",
  "fedimint-bip39",
- "fedimint-build",
+ "fedimint-build 0.4.0-alpha (git+https://github.com/m1sterc001guy/fedimint?rev=2541b9705aefde724d55683aa46fb6997d312d7e)",
  "fedimint-client",
  "fedimint-core",
  "fedimint-ln-client",
@@ -1456,7 +1464,7 @@ dependencies = [
  "bitcoin 0.29.2",
  "bitcoin_hashes 0.11.0",
  "fedimint-aead",
- "fedimint-build",
+ "fedimint-build 0.4.0-alpha (git+https://github.com/m1sterc001guy/fedimint?rev=2541b9705aefde724d55683aa46fb6997d312d7e)",
  "fedimint-core",
  "fedimint-derive-secret",
  "fedimint-logging",
@@ -1727,7 +1735,7 @@ dependencies = [
  "clap",
  "cln-plugin",
  "erased-serde",
- "fedimint-build",
+ "fedimint-build 0.4.0-alpha (git+https://github.com/m1sterc001guy/fedimint?rev=2541b9705aefde724d55683aa46fb6997d312d7e)",
  "fedimint-client",
  "fedimint-cln-rpc",
  "fedimint-core",
@@ -2026,7 +2034,7 @@ dependencies = [
  "bytes",
  "fedimint-aead",
  "fedimint-aleph-bft",
- "fedimint-build",
+ "fedimint-build 0.4.0-alpha (git+https://github.com/m1sterc001guy/fedimint?rev=2541b9705aefde724d55683aa46fb6997d312d7e)",
  "fedimint-core",
  "fedimint-logging",
  "fedimint-metrics",
@@ -2294,7 +2302,7 @@ dependencies = [
  "console-subscriber",
  "fedimint-aead",
  "fedimint-bitcoind",
- "fedimint-build",
+ "fedimint-build 0.4.0-alpha (git+https://github.com/m1sterc001guy/fedimint?rev=2541b9705aefde724d55683aa46fb6997d312d7e)",
  "fedimint-core",
  "fedimint-ln-common",
  "fedimint-ln-server",
@@ -4394,6 +4402,8 @@ name = "roastr"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "fedimint-build 0.4.0-alpha (git+https://github.com/fedimint/fedimint)",
+ "fedimint-core",
  "fedimintd",
  "rand",
  "roastr-common",
@@ -4408,7 +4418,9 @@ name = "roastr-cli"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "fedimint-build 0.4.0-alpha (git+https://github.com/fedimint/fedimint)",
  "fedimint-cli",
+ "fedimint-core",
  "roastr-client",
  "tokio",
 ]

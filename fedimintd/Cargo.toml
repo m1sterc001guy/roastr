@@ -18,3 +18,7 @@ roastr-common = { path = "../roastr-common" }
 rand = "0.8"
 schnorr_fun = { version = "0.10.0", features = ["serde", "bincode"] }
 sha2 = "0.10"
+fedimint-core = { workspace = true }
+
+[build-dependencies]
+fedimint-build = { git = "https://github.com/fedimint/fedimint" }

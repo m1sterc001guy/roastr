@@ -1,9 +1,9 @@
 use fedimint_cli::FedimintCli;
+use fedimint_core::fedimint_build_code_version_env;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // TODO: Fix this version hash
-    FedimintCli::new("e1efadacfa61f0e5f898a217bdc48ea781702000")?
+    FedimintCli::new(fedimint_build_code_version_env!())?
         .with_default_modules()
         .with_module(roastr_client::RoastrClientInit)
         .run()
