@@ -171,7 +171,10 @@ impl RoastrClientModule {
             TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::N)),
             vec![network.to_string()],
         );
-        let modules_tag = Tag::Generic(TagKind::Custom("modules".to_string()), modules);
+        let modules_tag = Tag::Generic(
+            TagKind::Custom("modules".to_string()),
+            vec![modules.join(",")],
+        );
         let u_tags = invite_codes.into_iter().map(|code| {
             Tag::Generic(
                 TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::U)),
