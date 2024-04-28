@@ -1,16 +1,18 @@
-# ROASTR
+# ROASTr
 
-ROASTR is a Fedimint module for collaboratively signing Nostr events. ROAST is a robust threshold signing algorithm for producing Schnorr signatures. Since Nostr uses Schnorr signatures for signing broadcasted notes, ROAST can be used to build a federated module for signing Nostr events. Inspired by [Nick Farrow's Frostr](https://github.com/nickfarrow/frostr).
+ROASTr is a Fedimint module for collaboratively signing [NOSTR](https://github.com/nostr-protocol/nips) events. ROAST is a robust threshold signing algorithm for producing Schnorr signatures. Since NOSTR uses Schnorr signatures for signing broadcasted notes, ROAST can be used to build a federated module for signing NOSTR events. Inspired by [Nick Farrow's Frostr](https://github.com/nickfarrow/frostr).
 
 ## How does it work?
-During federation setup, the guardians work together to compute a join public key (i.e the federation's "npub") that the federation can sign under. Each guardian holds a private key share for the joint public key, but no single guardian knows the joint private key. In order to sign a Nostr event, each guardian must request their server to produce a signature share using the guardian's private key share, the nostr event, and the nonces that were previously agreed on for the signing session. Once a `t/n` signature shares have been created, the final Schnorr signature can be created by combining all of the signature shares together. The signature is then attached to the Nostr event and broadcasted to the Nostr network.
+
+During federation setup, the guardians work together to compute a join public key (i.e the federation's "npub") that the federation can sign under. Each guardian holds a private key share for the joint public key, but no single guardian knows the joint private key. In order to sign a NOSTR event, each guardian must request their server to produce a signature share using the guardian's private key share, the nostr event, and the nonces that were previously agreed on for the signing session. Once a `t/n` signature shares have been created, the final Schnorr signature can be created by combining all of the signature shares together. The signature is then attached to the NOSTR event and broadcasted to the NOSTR network.
 
 ## Why ROAST and not FROST?
-ROAST is simply a wrapper on top of FROST that makes it more robust. Because FROST is a two-round signing algorithm (nonce round + signing round), it is possible to commit to a set of nonces from a particular set of guardians in the first round, then a malicious guardian could without their signature in the second round, which would stall the signing process and result in failing to produce a signature. ROAST solves this by spawning many FROST sessions in parallel. Because many FROST sessions are running in parallel, this guarantees that if there are an honest quorum of guardians willing to sign the Nostr event, a valid signature will be created. These parallel FROST sessions improve the robustness of FROST, but at the expense of efficiency, since some signing sessions may fail to produce a signature or will be redundant work. ROAST is better suited for adversarial scenarios where some members of the federation might be malicious or unreliable. More on ROAST can be found [here](https://medium.com/blockstream/roast-robust-asynchronous-schnorr-threshold-signatures-ddda55a07d1b) and [here](https://eprint.iacr.org/2022/550.pdf).
 
-## Running ROASTR
+ROAST is simply a wrapper on top of [FROST](https://eprint.iacr.org/2020/852.pdf) that makes it more robust. Because FROST is a two-round signing algorithm (nonce round + signing round), it is possible to commit to a set of nonces from a particular set of guardians in the first round, then a malicious (or offline) guardian could withhold their signature in the second round, which would stall the signing process and result in a failed signature. ROAST solves this by spawning many FROST sessions in parallel. Because many FROST sessions are running in parallel, this guarantees that if there are an honest quorum of guardians willing to sign the NOSTR event, a valid signature will be created. These parallel FROST sessions improve the robustness of FROST, but at the expense of efficiency, since some signing sessions may fail to produce a signature or will be redundant work. ROAST is better suited for adversarial scenarios where some members of the federation might be malicious or unreliable. More on ROAST can be found [here](https://medium.com/blockstream/roast-robust-asynchronous-schnorr-threshold-signatures-ddda55a07d1b) and [here](https://eprint.iacr.org/2022/550.pdf).
 
-To run ROASTR, you'll need to have Nix installed.
+## Running ROASTr
+
+To run ROASTr, you'll need to have [Nix](https://nixos.org) installed.
 
 ```bash
 sh <(curl -L https://nixos.org/nix/install) --daemon
@@ -28,21 +30,21 @@ and run the following command to start the nix developer environment
 nix develop
 ```
 
-Then, you can run fedimint with ROASTR installed with
+Then, you can run fedimint with ROASTr installed with
 
 ```bash
 just mprocs
 ```
 
-## Using ROASTR
+## Using ROASTr
 
 First, create a note to be signed. This can be done by any guardian, but the correct password must be supplied since it is an admin command.
 
 ```bash
-fedimint-cli --our-id=0 --password=pass module roastr create-note --text ROASTR
+fedimint-cli --our-id=0 --password=pass module roastr create-note --text ROASTr
 ```
 
-This will produce an event id. Copy the event id.
+This will produce a NOSTR event id. Copy the event id.
 
 At any point during this process, we can check the state of the signing sessions and which signature shares have been produced:
 
@@ -63,7 +65,7 @@ Below is an example output. We can see that after creating the note with guardia
         "created_at": 1714186840,
         "kind": 1,
         "tags": [],
-        "content": "ROASTR"
+        "content": "ROASTr"
       }
     }
   },
@@ -76,7 +78,7 @@ Below is an example output. We can see that after creating the note with guardia
         "created_at": 1714186840,
         "kind": 1,
         "tags": [],
-        "content": "ROASTR"
+        "content": "ROASTr"
       }
     }
   },
@@ -89,7 +91,7 @@ Below is an example output. We can see that after creating the note with guardia
         "created_at": 1714186840,
         "kind": 1,
         "tags": [],
-        "content": "ROASTR"
+        "content": "ROASTr"
       }
     }
   }
@@ -114,7 +116,7 @@ At this point, guardians 0,1,2 have all produced signature shares and we should 
 fedimint-cli module roastr broadcast-note --event-id <event_id>
 ```
 
-This will combined the signature shares into a Schnorr signature, attach the signature to the Nostr note, and broadcast the note to Nostr using [Blastr](https://github.com/MutinyWallet/blastr).
+This will combined the signature shares into a Schnorr signature, attach the signature to the NOSTR note, and broadcast the note to NOSTR using [Blastr](https://github.com/MutinyWallet/blastr).
 
 An example output is provided below:
 
@@ -126,14 +128,16 @@ An example output is provided below:
 ```
 
 ## Creating Federation Announcements
-Nostr has [NIP-87](https://github.com/nostr-protocol/nips/pull/1110) for broadcasting federation announcements via Nostr. These federation announcements allow users to discover Mints over Nostr and wallets (e.g MutinyWallet) can leverage the web of trust graph of Nostr to recommend e-cash mints to users based on friend's recommendations. Now, with ROASTR, these federation announcements can be signed by the mint itself!
+
+NOSTR has [NIP-87](https://github.com/nostr-protocol/nips/pull/1110) for broadcasting federation announcements via NOSTR. These federation announcements allow users to discover Mints over NOSTR and wallets (e.g MutinyWallet) can leverage the web of trust graph of NOSTR to recommend e-cash mints to users based on friend's recommendations. Now, with ROASTr, these federation announcements can be signed by the mint itself!
 
 ```bash
 fedimint-cli --our-id=0 --password=pass module roastr create-federation-announcement
 ```
 
-The procedure for signing the note and broadcasting it to Nostr is the same as above.
+The procedure for signing the note and broadcasting it to NOSTR is the same as above.
 
 
 ## Help
-Reach out to [m1sterc001guy](https://primal.net/p/npub1zswjq57t99f444z6485xtn0vfyjjfu8vqpnyj6uckuyem2446evqnxgc6x) on Nostr for any questions.
+
+Reach out to [m1sterc001guy](https://primal.net/p/npub1zswjq57t99f444z6485xtn0vfyjjfu8vqpnyj6uckuyem2446evqnxgc6x) on NOSTR for any questions.
