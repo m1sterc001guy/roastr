@@ -15,7 +15,7 @@ ROAST is simply a wrapper on top of [FROST](https://eprint.iacr.org/2020/852.pdf
 To run ROASTr, you'll need to have [Nix](https://nixos.org) installed.
 
 ```bash
-sh <(curl -L https://nixos.org/nix/install) --daemon
+curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 ```
 
 Then, fork and clone this repo
