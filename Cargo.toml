@@ -31,7 +31,7 @@ fedimint-testing = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2
 devimint = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
 aead = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
 tbs = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-threshold_crypto = { git = "https://github.com/fedimint/threshold_crypto" }
+threshold_crypto = { git = "https://github.com/fedimint/threshold_crypto", package = "fedimint-threshold-crypto", version = "0.2.1" }
 
 clap = { version = "4.5.4", features = ["derive", "std", "help", "usage", "error-context", "suggestions", "env"], default-features = false }
 nostr-sdk = "0.30.0"
