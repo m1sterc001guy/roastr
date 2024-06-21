@@ -22,9 +22,13 @@
       url =
         "github:fedimint/fedimint?rev=a41e3a7e31ce0f26058206a04f1cd49ef2b12fe3";
     };
+    advisory-db = {
+      url = "github:rustsec/advisory-db";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, flakebox, fenix, flake-utils, fedimint }:
+  outputs = { self, nixpkgs, flakebox, fenix, flake-utils, fedimint, advisory-db }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -63,11 +67,59 @@
 
         # all standard toolchains provided by flakebox
         toolchainsStd = flakeboxLib.mkStdFenixToolchains toolchainArgs;
+        stdToolchains = flakeboxLib.mkStdToolchains toolchainArgs;
 
         toolchainsNative = (pkgs.lib.getAttrs [ "default" ] toolchainsStd);
 
         toolchainNative =
           flakeboxLib.mkFenixMultiToolchain { toolchains = toolchainsNative; };
+
+        # Replace placeholder git hash in a binary
+        #
+        # To avoid impurity, we use a git hash placeholder when building binaries
+        # and then replace them with the real git hash in the binaries themselves.
+        replaceGitHash =
+          let
+            # the hash we will set if the tree is dirty;
+            dirtyHashPrefix = builtins.substring 0 16 self.dirtyRev;
+            dirtyHashSuffix = builtins.substring (40 - 16) 16 self.dirtyRev;
+            # the string needs to be 40 characters, like the original,
+            # so to denote `-dirty` we replace the middle with zeros
+            dirtyHash = "${dirtyHashPrefix}00000000${dirtyHashSuffix}";
+          in
+          { package, name, placeholder, gitHash ? if (self ? rev) then self.rev else dirtyHash }:
+          pkgs.stdenv.mkDerivation {
+            inherit system;
+            inherit name;
+
+            dontUnpack = true;
+            dontStrip = !pkgs.stdenv.isDarwin;
+
+            installPhase = ''
+              cp -a ${package} $out
+              for path in `find $out -type f -executable`; do
+                # need to use a temporary file not to overwrite source as we are reading it
+                bbe -e 's/${placeholder}/${gitHash}/' $path -o ./tmp || exit 1
+                chmod +w $path
+                # use cat to keep all the original permissions etc as they were
+                cat ./tmp > "$path"
+                chmod -w $path
+              done
+            '';
+
+            buildInputs = [ pkgs.bbe ];
+          };
+
+        craneMultiBuild = import nix/nix/flakebox.nix {
+            inherit pkgs flakeboxLib advisory-db replaceGitHash;
+
+            # Yes, you're seeing right. We're passing result of this call as an argument
+            # to it.
+            inherit craneMultiBuild;
+
+            toolchains = stdToolchains;
+            profiles = [ "dev" "ci" "test" "release" ];
+          };
 
         commonArgs = {
           buildInputs = [ ] ++ lib.optionals pkgs.stdenv.isDarwin
@@ -92,7 +144,7 @@
               };
             });
       in {
-        legacyPackages = outputs;
+        legacyPackages = craneMultiBuild;
         packages = { default = outputs.fedimint-roastr; };
         devShells = flakeboxLib.mkShells {
           packages = [ ];

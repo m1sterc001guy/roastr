@@ -3,6 +3,22 @@
     "advisory-db": {
       "flake": false,
       "locked": {
+        "lastModified": 1718755832,
+        "narHash": "sha256-bSY6HPtJ9vCp0AGjL5X910aTg0mq32p3BcJmZQkNkMs=",
+        "owner": "rustsec",
+        "repo": "advisory-db",
+        "rev": "8eb99abe8c369b48bbd4ca04133e1f05be22a778",
+        "type": "github"
+      },
+      "original": {
+        "owner": "rustsec",
+        "repo": "advisory-db",
+        "type": "github"
+      }
+    },
+    "advisory-db_2": {
+      "flake": false,
+      "locked": {
         "lastModified": 1706115649,
         "narHash": "sha256-Qrqb54qGaRsFdLDj8EJtI5leFGFfqWHLRgC+t6KWlpQ=",
         "owner": "rustsec",
@@ -180,7 +196,7 @@
     },
     "fedimint": {
       "inputs": {
-        "advisory-db": "advisory-db",
+        "advisory-db": "advisory-db_2",
         "bundlers": "bundlers",
         "fenix": "fenix",
         "flake-utils": "flake-utils_2",
@@ -548,6 +564,7 @@
     },
     "root": {
       "inputs": {
+        "advisory-db": "advisory-db",
         "fedimint": "fedimint",
         "fenix": "fenix_2",
         "flake-utils": "flake-utils_5",
