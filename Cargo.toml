@@ -10,7 +10,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-name = "roastr"
+name = "fedimint-roastr"
 version = "0.0.1"
 
 [workspace.metadata]
