@@ -9,6 +9,10 @@ members = [
 ]
 resolver = "2"
 
+[workspace.package]
+name = "roastr"
+version = "0.0.1"
+
 [workspace.metadata]
 authors = ["The Fedimint Developers"]
 edition = "2021"
