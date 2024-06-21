@@ -141,6 +141,7 @@ impl RoastrClientModule {
 
     /// Creates a Federation Announcement Nostr note and proposes it to
     /// consensus for signing.
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_federation_announcement(
         &self,
         name: Option<&str>,
@@ -187,7 +188,7 @@ impl RoastrClientModule {
 
         let unsigned_event = UnsignedEvent::new(
             nostr_sdk::EventBuilder::new(Kind::from(38173), metadata.as_json(), tags)
-                .to_unsigned_event(public_key.into()),
+                .to_unsigned_event(public_key),
         );
 
         self.request_create_note(unsigned_event).await
@@ -242,7 +243,7 @@ impl RoastrClientModule {
         let signing_sessions = self.get_signing_sessions(event_id).await?;
         for (peers, signatures) in signing_sessions {
             let sorted_peers = peers
-                .split(",")
+                .split(',')
                 .map(|peer_id| peer_id.parse::<u16>().expect("Invalid peer id").into())
                 .collect::<Vec<PeerId>>();
 
@@ -299,8 +300,8 @@ impl RoastrClientModule {
             for (key, value) in inner_map {
                 signing_sessions
                     .entry(key)
-                    .or_insert_with(BTreeMap::new)
-                    .insert(peer_id.clone(), value);
+                    .or_default()
+                    .insert(peer_id, value);
             }
         }
 
@@ -362,7 +363,7 @@ impl RoastrClientModule {
                 &xonly_frost_key,
                 &session,
                 curr_index,
-                sig_share.share.deref().clone().mark_zero_choice(),
+                (*sig_share.share.deref()).mark_zero_choice(),
             ) {
                 error!(%peer_id, "Signature share failed verification");
                 return None;
@@ -371,8 +372,8 @@ impl RoastrClientModule {
 
         let frost_shares = shares
             .clone()
-            .into_iter()
-            .map(|(_, sig_share)| sig_share.share.mark_zero_choice())
+            .into_values()
+            .map(|sig_share| sig_share.share.mark_zero_choice())
             .collect::<Vec<_>>();
 
         // Combine all signature shares into a single schnorr signature.
@@ -409,7 +410,7 @@ pub async fn create_federation_announcement(
     for peer_id in total_peers {
         let invite_code = client
             .get_config()
-            .invite_code(&peer_id)
+            .invite_code(peer_id)
             .ok_or(anyhow::anyhow!("Peer {peer_id} does not exist"))?;
         invite_codes.push(invite_code.to_string());
     }

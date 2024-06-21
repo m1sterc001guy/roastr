@@ -158,7 +158,7 @@ impl ServerModuleInit for RoastrInit {
                     local: RoastrConfigLocal,
                     private: RoastrConfigPrivate {
                         my_peer_id: *peer_id,
-                        my_secret_share: secret_share.clone(),
+                        my_secret_share: *secret_share,
                     },
                     consensus: RoastrConfigConsensus {
                         num_nonces: params.consensus.num_nonces,
@@ -168,7 +168,7 @@ impl ServerModuleInit for RoastrInit {
                 }
                 .to_erased();
 
-                (peer_id.clone(), config)
+                (*peer_id, config)
             })
             .collect::<BTreeMap<PeerId, ServerModuleConfig>>()
     }
@@ -186,7 +186,7 @@ impl ServerModuleInit for RoastrInit {
         let my_secret_poly = poly::scalar::generate(threshold as usize, &mut OsRng);
         let my_public_poly = poly::scalar::to_point_poly(&my_secret_poly)
             .iter()
-            .map(|point| Point::new(point.clone()))
+            .map(|point| Point::new(*point))
             .collect::<Vec<_>>();
 
         // Exchange our polynomial with the other peers and wait for the polynomials
@@ -204,7 +204,7 @@ impl ServerModuleInit for RoastrInit {
                 (
                     peer_id_to_scalar(&peer_id),
                     poly.into_iter()
-                        .map(|point| point.deref().clone())
+                        .map(|point| *point.deref())
                         .collect::<Vec<_>>(),
                 )
             })
@@ -251,12 +251,11 @@ impl ServerModuleInit for RoastrInit {
                 (
                     index,
                     (
-                        shares_from_peer
+                        *shares_from_peer
                             .0
                             .get(&PublicScalar::new(my_index))
                             .expect("Didnt find our share")
-                            .deref()
-                            .clone(),
+                            .deref(),
                         shares_from_peer.1.deref().clone(),
                     ),
                 )
@@ -349,7 +348,7 @@ impl ServerModule for Roastr {
             let nonce = NonceKeyPair::new(schnorr_fun::musig::NonceKeyPair::random(
                 &mut rand::rngs::OsRng,
             ));
-            consensus_items.push(RoastrConsensusItem::Nonce(nonce));
+            consensus_items.push(RoastrConsensusItem::Nonce(Box::new(nonce)));
         }
 
         // Query for signing sessions that have no nonces selected
@@ -382,8 +381,14 @@ impl ServerModule for Roastr {
         match consensus_item {
             RoastrConsensusItem::Nonce(nonce) => {
                 let my_peer_id = self.cfg.private.my_peer_id;
-                dbtx.insert_new_entry(&NonceKey { peer_id, nonce }, &())
-                    .await;
+                dbtx.insert_new_entry(
+                    &NonceKey {
+                        peer_id,
+                        nonce: *nonce,
+                    },
+                    &(),
+                )
+                .await;
 
                 let num_nonces = dbtx
                     .find_by_prefix(&NoncePeerPrefix { peer_id })
@@ -522,8 +527,8 @@ impl ServerModule for Roastr {
                     let mut dbtx = context.dbtx();
                     let event_id = unsigned_event.compute_id();
                     let my_peer_id = module.cfg.private.my_peer_id;
-                    let mut sign_session_iter = SigningSessionIter::new(my_peer_id, &module.cfg.consensus);
-                    while let Some(signing_session) = sign_session_iter.next() {
+                    let sign_session_iter = SigningSessionIter::new(my_peer_id, &module.cfg.consensus);
+                    for signing_session in sign_session_iter {
                         info!(?my_peer_id, ?signing_session, ?event_id, "Creating signing session...");
                         dbtx.insert_new_entry(&SessionNonceKey { event_id, signing_session }, &SessionNonces::new(unsigned_event.clone())).await;
                     }
@@ -540,8 +545,8 @@ impl ServerModule for Roastr {
                     let mut dbtx = context.dbtx();
 
                     let my_peer_id = module.cfg.private.my_peer_id;
-                    let mut sign_session_iter = SigningSessionIter::new(my_peer_id, &module.cfg.consensus);
-                    while let Some(sign_session) = sign_session_iter.next() {
+                    let sign_session_iter = SigningSessionIter::new(my_peer_id, &module.cfg.consensus);
+                    for sign_session in sign_session_iter {
                         module.sign_note_or_start_sign_session(&mut dbtx.to_ref_nc(), sign_session.clone(), event_id).await;
                     }
 
@@ -700,8 +705,8 @@ impl Roastr {
         signing_session: &SigningSession,
     ) -> anyhow::Result<BTreeMap<PeerId, NonceKeyPair>> {
         let mut nonces = BTreeMap::new();
-        let mut peers_iter = signing_session.clone().into_iter();
-        while let Some(peer_id) = peers_iter.next() {
+        let peers_iter = signing_session.clone();
+        for peer_id in peers_iter {
             // Always use the first available nonce for the peer
             let (nonce_key, _) = match dbtx
                 .find_by_prefix(&NoncePeerPrefix { peer_id })
@@ -752,27 +757,25 @@ impl Roastr {
 
         // Using our secret share created during DKG, create our contribution to the
         // FROST signature.
-        let my_secret_share = self.cfg.private.my_secret_share.clone();
+        let my_secret_share = self.cfg.private.my_secret_share;
         let my_index = &self.cfg.private.my_peer_id;
         let my_nonce = nonces
-            .get(&my_index)
+            .get(my_index)
             .expect("This peer did not contribute a nonce. This should never happen, we should only create signature shares for sessions we are apart of.")
             .clone();
         let my_sig_share = self.frost.sign(
             &xonly_frost_key,
             &session,
-            peer_id_to_scalar(&my_index),
+            peer_id_to_scalar(my_index),
             &my_secret_share,
             my_nonce.deref().clone(),
         );
 
-        let signature_share = SignatureShare {
+        SignatureShare {
             share: PublicScalar::new(my_sig_share.non_zero().expect("Signature share was zero")),
             nonce: my_nonce,
             unsigned_event,
-        };
-
-        signature_share
+        }
     }
 }
 
@@ -798,7 +801,6 @@ impl SigningSessionIter {
         let combination_iter = all_peers
             .into_iter()
             .combinations(threshold)
-            .into_iter()
             .filter(move |peers| peers.contains(&peer_id));
 
         SigningSessionIter {
@@ -811,10 +813,6 @@ impl Iterator for SigningSessionIter {
     type Item = SigningSession;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(combination) = self.combination_iter.next() {
-            Some(SigningSession::new(combination))
-        } else {
-            None
-        }
+        self.combination_iter.next().map(SigningSession::new)
     }
 }

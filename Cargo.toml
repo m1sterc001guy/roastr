@@ -10,11 +10,11 @@ members = [
 resolver = "2"
 
 [workspace.package]
-name = "fedimint-roastr"
+name = "roastr"
 version = "0.0.1"
 
 [workspace.metadata]
-name = "fedimint-roastr"
+name = "roastr"
 authors = ["The Fedimint Developers"]
 edition = "2021"
 description = "Fedimint compiled with custom module set"

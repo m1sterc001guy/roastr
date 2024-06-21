@@ -53,7 +53,7 @@ pub type Frost = schnorr_fun::frost::Frost<
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize, Encodable, Decodable)]
 pub enum RoastrConsensusItem {
-    Nonce(NonceKeyPair),
+    Nonce(Box<NonceKeyPair>),
     SigningSession((UnsignedEvent, SigningSession)),
 }
 
@@ -187,8 +187,8 @@ impl Eq for NonceKeyPair {}
 impl Encodable for NonceKeyPair {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
         let bytes = self.0.to_bytes();
-        writer.write(&bytes)?;
-        Ok(bytes.len())
+        let len = writer.write(&bytes)?;
+        Ok(len)
     }
 }
 
@@ -292,8 +292,7 @@ impl Decodable for EventId {
         modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
     ) -> Result<Self, DecodeError> {
         let bytes = Vec::<u8>::consensus_decode(r, modules)?;
-        let event_id =
-            NdkEventId::from_slice(bytes.as_slice()).map_err(|e| DecodeError::from_err(e))?;
+        let event_id = NdkEventId::from_slice(bytes.as_slice()).map_err(DecodeError::from_err)?;
         Ok(EventId(event_id))
     }
 }
@@ -326,8 +325,8 @@ impl Point {
 impl Encodable for Point {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
         let bytes = self.0.to_bytes();
-        writer.write(&bytes)?;
-        Ok(bytes.len())
+        let len = writer.write(&bytes)?;
+        Ok(len)
     }
 }
 
@@ -367,8 +366,8 @@ impl PublicScalar {
 impl Encodable for PublicScalar {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
         let bytes = self.0.to_bytes();
-        writer.write(&bytes)?;
-        Ok(bytes.len())
+        let len = writer.write(&bytes)?;
+        Ok(len)
     }
 }
 
@@ -413,8 +412,8 @@ impl SecretScalar {
 impl Encodable for SecretScalar {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
         let bytes = self.0.to_bytes();
-        writer.write(&bytes)?;
-        Ok(bytes.len())
+        let len = writer.write(&bytes)?;
+        Ok(len)
     }
 }
 
@@ -454,8 +453,8 @@ impl Signature {
 impl Encodable for Signature {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
         let bytes = self.0.to_bytes();
-        writer.write(&bytes)?;
-        Ok(bytes.len())
+        let len = writer.write(&bytes)?;
+        Ok(len)
     }
 }
 
@@ -493,9 +492,7 @@ impl RoastrKey {
 
     pub fn public_key(&self) -> nostr_sdk::PublicKey {
         let pubkey = self.0.into_frost_key().public_key().to_xonly_bytes();
-        let public_key =
-            nostr_sdk::PublicKey::from_slice(&pubkey).expect("Failed to create xonly public key");
-        public_key
+        nostr_sdk::PublicKey::from_slice(&pubkey).expect("Failed to create xonly public key")
     }
 }
 
@@ -504,8 +501,8 @@ impl Encodable for RoastrKey {
         let frost_key_bytes = bincode2::serialize(&self.0).map_err(|_| {
             std::io::Error::new(ErrorKind::Other, "Error serializing FrostKey".to_string())
         })?;
-        writer.write(frost_key_bytes.as_slice())?;
-        Ok(frost_key_bytes.len())
+        let len = writer.write(frost_key_bytes.as_slice())?;
+        Ok(len)
     }
 }
 
@@ -517,7 +514,7 @@ impl Decodable for RoastrKey {
         // We assume the frost key will be 107 bytes
         let mut frost_key_bytes: [u8; 107] = [0; 107];
         r.read_exact(&mut frost_key_bytes)
-            .map_err(|e| DecodeError::from_err(e))?;
+            .map_err(DecodeError::from_err)?;
         let frost_key = bincode2::deserialize(&frost_key_bytes)
             .map_err(|_| DecodeError::from_str("Failed to deserialize FrostKey"))?;
         Ok(RoastrKey(frost_key))
@@ -526,12 +523,12 @@ impl Decodable for RoastrKey {
 
 impl Hash for RoastrKey {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        let mut frost_key_bytes = bincode2::serialize(&self.0)
+        let frost_key_bytes = bincode2::serialize(&self.0)
             .map_err(|_| {
                 std::io::Error::new(ErrorKind::Other, "Error serializing FrostKey".to_string())
             })
             .expect("Could not serialize EncodedFrostKey into bytes");
-        state.write(&mut frost_key_bytes);
+        state.write(&frost_key_bytes);
     }
 }
 

@@ -145,7 +145,7 @@ async fn contains_expected_signing_sessions(
     let roastr = user_client.get_first_module::<RoastrClientModule>();
     let event_sessions = roastr.get_signing_sessions(event_id).await?;
     for (expected_session, expected_shares) in expected_sessions.iter() {
-        match event_sessions.get(&expected_session.to_string()) {
+        match event_sessions.get(*expected_session) {
             Some(peer_nonces) => {
                 assert_eq!(
                     peer_nonces.len(),
