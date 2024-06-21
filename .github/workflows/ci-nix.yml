@@ -64,19 +64,12 @@ jobs:
       matrix:
         host:
           - linux
-          - macos
         include:
           - host: linux
             runs-on: buildjet-8vcpu-ubuntu-2004
             build-in-pr: true
             timeout: 60
             run-tests: true
-          - host: macos
-            runs-on: macos-12
-            build-in-pr: false
-            # TODO: Too slow; see https://github.com/actions/runner-images/issues/1336
-            timeout: 60
-            run-tests: false
 
     name: "Build on ${{ matrix.host }}"
     runs-on: ${{ matrix.runs-on }}
@@ -176,7 +169,6 @@ jobs:
       matrix:
         host:
           - linux
-          - macos
         toolchain:
           - aarch64-android
           - armv7-android
@@ -187,18 +179,6 @@ jobs:
             runs-on: ubuntu-22.04
             build-in-pr: true
             timeout: 20
-          - host: macos
-            runs-on: macos-12
-            build-in-pr: false
-            # TODO: Too slow; see https://github.com/actions/runner-images/issues/1336
-            timeout: 60
-        exclude:
-            # there's not enough macos runners available for our CI, so test only the more important cross-compilation toolchains
-            # if they work, rest probably works as well
-          - host: macos
-            toolchain: armv7-linux-androideabi
-          - host: macos
-            toolchain: x86_64-linux-android
 
 
     runs-on: ${{ matrix.runs-on }}
