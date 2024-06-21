@@ -11,7 +11,7 @@
     };
 
     flakebox = {
-      url = "github:dpc/flakebox?rev=226d584e9a288b9a0471af08c5712e7fac6f87dc";
+      url = "github:dpc/flakebox?rev=34ce1b8f8c60661e06dc54ce07deb1ff0ed2b7f5";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.fenix.follows = "fenix";
     };
