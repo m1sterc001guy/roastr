@@ -66,7 +66,7 @@ jobs:
           - linux
         include:
           - host: linux
-            runs-on: buildjet-8vcpu-ubuntu-2004
+            runs-on: ubuntu-latest
             build-in-pr: true
             timeout: 60
             run-tests: true
