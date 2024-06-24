@@ -21,18 +21,18 @@ on:
 jobs:
   self-care:
     name: Flake self-check
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Check Nix flake inputs
         uses: DeterminateSystems/flake-checker-action@v5
         with:
           fail-mode: true
-          nixpkgs-keys: nixpkgs,nixpkgs-unstable
+          nixpkgs-keys: nixpkgs
 
   lint:
     name: "Lint"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -176,7 +176,7 @@ jobs:
           - wasm32-unknown
         include:
           - host: linux
-            runs-on: ubuntu-22.04
+            runs-on: ubuntu-latest
             build-in-pr: true
             timeout: 20
 
