@@ -264,7 +264,7 @@ rec {
     cargoArtifacts = workspaceDeps;
     buildPhaseCargoCommand = ''
       patchShebangs ./scripts
-      export FM_RUSTDOC_INDEX_MD=${../docs/rustdoc-index.md}
+      export FM_RUSTDOC_INDEX_MD=${../../docs/rustdoc-index.md}
       ./scripts/dev/build-docs.sh
     '';
     doInstallCargoArtifacts = false;
