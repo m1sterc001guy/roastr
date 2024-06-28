@@ -223,17 +223,6 @@ rec {
     buildPhaseCargoCommand = "cargoWithProfile doc --locked ; cargoWithProfile check --all-targets --locked ; cargoWithProfile build --locked --all-targets";
   };
 
-  workspaceDepsWasmTest = craneLib.buildWorkspaceDepsOnly {
-    pname = "${commonArgs.pname}-wasm-test";
-    buildPhaseCargoCommand = "cargoWithProfile build --locked --tests -p fedimint-wasm-tests";
-  };
-
-  workspaceBuildWasmTest = craneLib.buildWorkspace {
-    pnameSuffix = "-workspace-wasm-test";
-    cargoArtifacts = workspaceDepsWasmTest;
-    buildPhaseCargoCommand = "cargoWithProfile build --locked --tests -p fedimint-wasm-tests";
-  };
-
   workspaceTest = craneLib.cargoNextest {
     cargoArtifacts = workspaceBuild;
     cargoExtraArgs = "--workspace --all-targets --locked";
@@ -310,4 +299,31 @@ rec {
   cargoDeny = craneLib.cargoDeny {
     src = filterWorkspaceAuditFiles commonSrc;
   };
+
+  ciTestAllBase = { times }: craneLibTests.mkCargoDerivation {
+    pname = "${commonCliTestArgs.pname}-all";
+    cargoArtifacts = craneMultiBuild.default.${craneLib.cargoProfile or "release"}.workspaceBuild;
+
+    FM_DISCOVER_API_VERSION_TIMEOUT = "10";
+
+    # One normal run, then if succeeded, modify the "always success test" to fail,
+    # and make sure we detect it (happened too many times that we didn't).
+    # Thanks to early termination, this should be all very quick, as we actually
+    # won't start other tests.
+    buildPhaseCargoCommand = ''
+      # default to building for native; running test for cross-compilation targets
+      # here doesn't make any sense, and `wasm32-unknown-unknown` toolchain is used
+      # mostly to opt-in into wasm tests
+      unset CARGO_BUILD_TARGET
+
+      patchShebangs ./scripts
+      export FM_CARGO_DENY_COMPILATION=1
+      export FM_TEST_CI_ALL_TIMES=${builtins.toString times}
+      export FM_TEST_CI_ALL_DISABLE_ETA=1
+      cargo test
+    '';
+  };
+
+  ciTestAll = ciTestAllBase { times = 1; };
+  ciTestAll5Times = ciTestAllBase { times = 5; };
 })
