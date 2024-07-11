@@ -19,9 +19,7 @@ use fedimint_testing::fixtures::Fixtures;
 use fedimint_wallet_client::WalletClientInit;
 use fedimint_wallet_common::config::WalletGenParams;
 use fedimint_wallet_server::WalletInit;
-use roastr_client::{
-    create_federation_announcement, BroadcastEventResponse, RoastrClientInit, RoastrClientModule,
-};
+use roastr_client::{create_federation_announcement, RoastrClientInit, RoastrClientModule};
 use roastr_common::config::RoastrGenParams;
 use roastr_common::EventId;
 use roastr_server::RoastrInit;
@@ -225,16 +223,20 @@ async fn can_sign_with_degraded() -> anyhow::Result<()> {
     roastr2.sign_note(event_id).await?;
     wait_for_signing_sessions(&user_client, event_id, [("0,1,2", 3)].to_vec()).await?;
 
-    // Combine signature shares and broadcast to nostr
+    // Verify the signature on the signed note
     let roastr = user_client.get_first_module::<RoastrClientModule>();
-    let BroadcastEventResponse {
-        federation_npub,
-        event_id,
-    } = roastr.broadcast_note(event_id).await?;
-    tracing::info!(
-        ?federation_npub,
+    let signed_note = roastr.create_signed_note(event_id).await?;
+    let signature = signed_note.signature();
+    let event_id = signed_note.id;
+    let msg = nostr_sdk::secp256k1::Message::from_digest(event_id.to_bytes());
+    let ctx = nostr_sdk::secp256k1::Secp256k1::new();
+    let pubkey = roastr.frost_key.public_key();
+    ctx.verify_schnorr(&signature, &msg, &pubkey)?;
+    info!(
+        ?signature,
+        ?pubkey,
         ?event_id,
-        "Success. Broadcasted note to Blastr"
+        "Successfully verified signature"
     );
 
     Ok(())
@@ -295,16 +297,20 @@ async fn all_guardians_sign_note() -> anyhow::Result<()> {
     )
     .await?;
 
-    // Combine signature shares and broadcast to nostr
+    // Verify the signature on the signed note
     let roastr = user_client.get_first_module::<RoastrClientModule>();
-    let BroadcastEventResponse {
-        federation_npub,
-        event_id,
-    } = roastr.broadcast_note(event_id).await?;
-    tracing::info!(
-        ?federation_npub,
+    let signed_note = roastr.create_signed_note(event_id).await?;
+    let signature = signed_note.signature();
+    let event_id = signed_note.id;
+    let msg = nostr_sdk::secp256k1::Message::from_digest(event_id.to_bytes());
+    let ctx = nostr_sdk::secp256k1::Secp256k1::new();
+    let pubkey = roastr.frost_key.public_key();
+    ctx.verify_schnorr(&signature, &msg, &pubkey)?;
+    info!(
+        ?signature,
+        ?pubkey,
         ?event_id,
-        "Success. Broadcasted note to Blastr"
+        "Successfully verified signature"
     );
 
     Ok(())
@@ -368,16 +374,20 @@ async fn all_guardians_sign_federation_announcement() -> anyhow::Result<()> {
     )
     .await?;
 
-    // Combine signature shares and broadcast to nostr
+    // Verify the signature on the signed note
     let roastr = user_client.get_first_module::<RoastrClientModule>();
-    let BroadcastEventResponse {
-        federation_npub,
-        event_id,
-    } = roastr.broadcast_note(event_id).await?;
-    tracing::info!(
-        ?federation_npub,
+    let signed_note = roastr.create_signed_note(event_id).await?;
+    let signature = signed_note.signature();
+    let event_id = signed_note.id;
+    let msg = nostr_sdk::secp256k1::Message::from_digest(event_id.to_bytes());
+    let ctx = nostr_sdk::secp256k1::Secp256k1::new();
+    let pubkey = roastr.frost_key.public_key();
+    ctx.verify_schnorr(&signature, &msg, &pubkey)?;
+    info!(
+        ?signature,
+        ?pubkey,
         ?event_id,
-        "Success. Broadcasted note to Blastr"
+        "Successfully verified signature"
     );
 
     Ok(())

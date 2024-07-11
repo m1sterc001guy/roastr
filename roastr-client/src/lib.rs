@@ -236,7 +236,7 @@ impl RoastrClientModule {
     /// been provided by the guardians. If enough signature shares are
     /// available, the combined schnorr signature is created and attached to
     /// the Nostr event.
-    async fn create_signed_note(&self, event_id: EventId) -> anyhow::Result<nostr_sdk::Event> {
+    pub async fn create_signed_note(&self, event_id: EventId) -> anyhow::Result<nostr_sdk::Event> {
         let threshold = self.frost_key.threshold();
         // Verify that at least a `threshold` number of signature shares have been
         // provided, otherwise we cannot sign the note.

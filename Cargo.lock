@@ -4576,6 +4576,7 @@ dependencies = [
  "fedimint-wallet-client",
  "fedimint-wallet-common",
  "fedimint-wallet-server",
+ "nostr-sdk",
  "rand",
  "roastr-client",
  "roastr-common",
