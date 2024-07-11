@@ -29,11 +29,34 @@
   };
 
   outputs = { self, nixpkgs, flakebox, fenix, flake-utils, fedimint, advisory-db }:
+    let
+      # overlay combining all overlays we use
+      overlayAll =
+        nixpkgs.lib.composeManyExtensions
+          [
+            (import ./nix/nix/overlays/rocksdb.nix)
+            (import ./nix/nix/overlays/wasm-bindgen.nix)
+            (import ./nix/nix/overlays/cargo-nextest.nix)
+            (import ./nix/nix/overlays/esplora-electrs.nix)
+            (import ./nix/nix/overlays/clightning.nix)
+            (import ./nix/nix/overlays/darwin-compile-fixes.nix)
+            (import ./nix/nix/overlays/cargo-honggfuzz.nix)
+          ];
+    in
+    {
+      overlays = {
+        # technically overlay outputs are supposed to be just a function,
+        # instead of a list, but keeping this one just to phase it out smoothly
+        fedimint = [ overlayAll ];
+        all = overlayAll;
+      };
+    } //
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
           inherit system;
-          overlays = fedimint.overlays.fedimint;
+          #overlays = fedimint.overlays.fedimint;
+          overlays = [ overlayAll ];
         };
         lib = pkgs.lib;
         flakeboxLib = flakebox.lib.${system} { };
