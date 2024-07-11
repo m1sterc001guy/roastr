@@ -3,7 +3,7 @@
     "A fedimint client daemon for server side applications to hold, use, and manage Bitcoin";
 
   inputs = {
-    nixpkgs = { url = "github:nixos/nixpkgs/nixos-23.11"; };
+    nixpkgs = { url = "github:nixos/nixpkgs/release-23.11"; };
 
     fenix = {
       url = "github:nix-community/fenix";
