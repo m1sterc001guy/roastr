@@ -10,7 +10,7 @@ name = "fedimint-cli"
 path = "src/main.rs"
 
 [dependencies]
-anyhow = "1.0.66"
+anyhow = { workspace = true }
 fedimint-cli = { workspace = true }
 fedimint-core = { workspace = true }
 roastr-client = { path = "../roastr-client", features = [ "cli" ] }

@@ -12,17 +12,15 @@ name = "roastr_tests"
 path = "tests/tests.rs"
 
 [dependencies]
-anyhow = "1.0.66"
-fedimint-client = { workspace = true }
 fedimint-dummy-client = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
 fedimint-dummy-common = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
 fedimint-dummy-server = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
 fedimint-wallet-client = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
 fedimint-wallet-common = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
 fedimint-wallet-server = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-#fedimint-dummy-client = { path = "../../fedimint/modules/fedimint-dummy-client" }
-#fedimint-dummy-common = { path = "../../fedimint/modules/fedimint-dummy-common" }
-#fedimint-dummy-server = { path = "../../fedimint/modules/fedimint-dummy-server" }
+
+anyhow = { workspace = true }
+fedimint-client = { workspace = true }
 fedimint-core = { workspace = true }
 roastr-client = { path = "../roastr-client" }
 roastr-common = { path = "../roastr-common" }
@@ -31,11 +29,8 @@ fedimint-logging = { workspace = true }
 fedimint-server = { workspace = true }
 fedimint-testing = { workspace = true }
 nostr-sdk = { workspace = true }
-rand = "0.8"
+rand = { workspace = true }
 tokio = { version = "1.26.0", features = ["sync"] }
-tracing = "0.1.37"
-schnorr_fun = { version = "0.10.0", features = ["serde", "bincode"] }
-sha2 = "0.10"
-
-[dev-dependencies]
-threshold_crypto = { workspace = true }
+tracing = { workspace = true }
+schnorr_fun = { workspace = true }
+sha2 = { workspace = true }

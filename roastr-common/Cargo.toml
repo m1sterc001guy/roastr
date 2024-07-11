@@ -14,14 +14,14 @@ name = "roastr_common"
 path = "src/lib.rs"
 
 [dependencies]
-anyhow = "1.0.66"
+anyhow = { workspace = true }
 async-trait = "0.1.73"
 bincode2 = "2.0.1"
 fedimint-core ={ workspace = true }
 nostr-sdk = { workspace = true }
-rand = "0.8"
-sha2 = "0.10"
+rand = { workspace = true }
+sha2 = { workspace = true }
 serde = { version = "1.0.149", features = ["derive"] }
-schnorr_fun = { version = "0.10.0", features = ["serde"]}
+schnorr_fun = { workspace = true }
 thiserror = "1.0.39"
-tracing = "0.1.37"
+tracing = { workspace = true }

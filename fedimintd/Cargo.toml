@@ -10,14 +10,14 @@ name = "fedimintd"
 path = "src/fedimintd.rs"
 
 [dependencies]
-anyhow = "1.0.66"
+anyhow = { workspace = true }
 fedimintd = { workspace = true }
 tokio = { version = "1.25.0", features = ["full", "tracing"] }
 roastr-server = { path = "../roastr-server" }
 roastr-common = { path = "../roastr-common" }
-rand = "0.8"
-schnorr_fun = { version = "0.10.0", features = ["serde", "bincode"] }
-sha2 = "0.10"
+rand = { workspace = true }
+schnorr_fun = { workspace = true }
+sha2 = { workspace = true }
 fedimint-core = { workspace = true }
 
 [build-dependencies]
