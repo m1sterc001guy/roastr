@@ -133,7 +133,7 @@
             buildInputs = [ pkgs.bbe ];
           };
 
-        craneMultiBuild = import nix/nix/flakebox.nix {
+        craneMultiBuild = import nix/flakebox.nix {
             inherit pkgs flakeboxLib advisory-db replaceGitHash;
 
             # Yes, you're seeing right. We're passing result of this call as an argument
