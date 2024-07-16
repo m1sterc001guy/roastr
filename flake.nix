@@ -3,7 +3,7 @@
     "A fedimint client daemon for server side applications to hold, use, and manage Bitcoin";
 
   inputs = {
-    nixpkgs = { url = "github:nixos/nixpkgs/release-23.11"; };
+    nixpkgs = { url = "github:nixos/nixpkgs/nixos-24.05"; };
 
     fenix = {
       url = "github:nix-community/fenix";
@@ -11,7 +11,7 @@
     };
 
     flakebox = {
-      url = "github:dpc/flakebox?rev=34ce1b8f8c60661e06dc54ce07deb1ff0ed2b7f5";
+      url = "github:dpc/flakebox?rev=12d5ee4f6c47bc01f07ec6f5848a83db265902d3";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.fenix.follows = "fenix";
     };
@@ -34,13 +34,13 @@
       overlayAll =
         nixpkgs.lib.composeManyExtensions
           [
-            (import ./nix/nix/overlays/rocksdb.nix)
-            (import ./nix/nix/overlays/wasm-bindgen.nix)
-            (import ./nix/nix/overlays/cargo-nextest.nix)
-            (import ./nix/nix/overlays/esplora-electrs.nix)
-            (import ./nix/nix/overlays/clightning.nix)
-            (import ./nix/nix/overlays/darwin-compile-fixes.nix)
-            (import ./nix/nix/overlays/cargo-honggfuzz.nix)
+            (import ./nix/overlays/rocksdb.nix)
+            (import ./nix/overlays/wasm-bindgen.nix)
+            (import ./nix/overlays/cargo-nextest.nix)
+            (import ./nix/overlays/esplora-electrs.nix)
+            (import ./nix/overlays/clightning.nix)
+            (import ./nix/overlays/darwin-compile-fixes.nix)
+            (import ./nix/overlays/cargo-honggfuzz.nix)
           ];
     in
     {
