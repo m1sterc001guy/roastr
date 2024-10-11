@@ -1,25 +1,22 @@
 use std::collections::BTreeMap;
 use std::ffi;
 use std::ops::Deref;
-use std::time::Duration;
 
 use bitcoin::Network;
+use fedimint_api_client::api::{DynModuleApi, FederationApiExt};
+use fedimint_api_client::query::ThresholdConsensus;
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
-use fedimint_client::module::{ClientModule, IClientModule};
+use fedimint_client::module::{ClientContext, ClientModule, IClientModule};
 use fedimint_client::sm::{Context, DynState, State};
-use fedimint_client::{ClientHandleArc, DynGlobalClientContext};
-use fedimint_core::api::{DynModuleApi, FederationApiExt};
+use fedimint_client::DynGlobalClientContext;
 use fedimint_core::config::{ClientModuleConfig, FederationId};
 use fedimint_core::core::{Decoder, IntoDynInstance, ModuleInstanceId, OperationId};
 use fedimint_core::db::{DatabaseTransaction, DatabaseVersion};
 use fedimint_core::encoding::{Decodable, Encodable};
-use fedimint_core::module::{
-    ApiAuth, ApiRequestErased, ApiVersion, ModuleCommon, MultiApiVersion, TransactionItemAmount,
-};
-use fedimint_core::query::ThresholdOrDeadline;
-use fedimint_core::{apply, async_trait_maybe_send, NumPeersExt, PeerId};
-use fedimint_wallet_client::WalletClientModule;
+use fedimint_core::invite_code::InviteCode;
+use fedimint_core::module::{ApiAuth, ApiRequestErased, ApiVersion, ModuleCommon, MultiApiVersion};
+use fedimint_core::{apply, async_trait_maybe_send, Amount, NumPeersExt, PeerId};
 use nostr_sdk::secp256k1::schnorr::Signature;
 use nostr_sdk::{
     Alphabet, Client, JsonUtil, Keys, Kind, SingleLetterTag, Tag, TagKind, ToBech32, Url,
@@ -47,6 +44,8 @@ pub struct RoastrClientModule {
     pub frost: Frost,
     pub admin_auth: Option<ApiAuth>,
     pub nostr_client: Client,
+    pub federation_id: FederationId,
+    pub client_ctx: ClientContext<Self>,
 }
 
 impl std::fmt::Debug for RoastrClientModule {
@@ -80,19 +79,13 @@ impl ClientModule for RoastrClientModule {
     }
 
     // Roastr module does not support transactions so `input_amount` is not required
-    fn input_amount(
-        &self,
-        _input: &<Self::Common as ModuleCommon>::Input,
-    ) -> Option<TransactionItemAmount> {
+    fn input_fee(&self, _input: &<Self::Common as ModuleCommon>::Input) -> Option<Amount> {
         None
     }
 
     // Roastr module does not support transactions so `output_amount` is not
     // required
-    fn output_amount(
-        &self,
-        _output: &<Self::Common as ModuleCommon>::Output,
-    ) -> Option<TransactionItemAmount> {
+    fn output_fee(&self, _output: &<Self::Common as ModuleCommon>::Output) -> Option<Amount> {
         None
     }
 
@@ -100,9 +93,8 @@ impl ClientModule for RoastrClientModule {
     async fn handle_cli_command(
         &self,
         args: &[ffi::OsString],
-        client: ClientHandleArc,
     ) -> anyhow::Result<serde_json::Value> {
-        cli::handle_cli_command(self, args, client).await
+        cli::handle_cli_command(self, args).await
     }
 }
 
@@ -280,14 +272,10 @@ impl RoastrClientModule {
         &self,
         event_id: EventId,
     ) -> anyhow::Result<BTreeMap<String, BTreeMap<PeerId, SignatureShare>>> {
-        let total_peers = self.module_api.all_peers().total();
         let sig_shares: BTreeMap<PeerId, BTreeMap<String, SignatureShare>> = self
             .module_api
             .request_with_strategy(
-                ThresholdOrDeadline::new(
-                    total_peers,
-                    fedimint_core::time::now() + Duration::from_secs(1),
-                ),
+                ThresholdConsensus::new(self.module_api.all_peers().to_num_peers()),
                 GET_EVENT_SESSIONS_ENDPOINT.to_string(),
                 ApiRequestErased::new(event_id),
             )
@@ -397,28 +385,23 @@ impl RoastrClientModule {
 /// Creates a Federation Announcement Nostr note by querying other modules for
 /// the necessary data and requests the guardians to sign it.
 pub async fn create_federation_announcement(
-    client: ClientHandleArc,
+    roastr: &RoastrClientModule,
     description: Option<String>,
+    network: bitcoin::Network,
 ) -> anyhow::Result<EventId> {
-    let federation_id = client.federation_id();
-    let wallet_client = client.get_first_module::<WalletClientModule>();
-    let network = wallet_client.get_network();
+    let federation_id = roastr.federation_id;
+    let config = roastr.client_ctx.get_config().await;
+    let api_endpoints = config.global.clone().api_endpoints;
 
-    let roastr = client.get_first_module::<RoastrClientModule>();
-    let total_peers = roastr.module_api.all_peers();
     let mut invite_codes = Vec::new();
-    for peer_id in total_peers {
-        let invite_code = client
-            .get_config()
-            .invite_code(peer_id)
-            .ok_or(anyhow::anyhow!("Peer {peer_id} does not exist"))?;
+    for (peer, peer_url) in api_endpoints {
+        let invite_code = InviteCode::new(peer_url.url, peer, federation_id, None);
         invite_codes.push(invite_code.to_string());
     }
 
-    let federation_name = client.get_config().global.federation_name();
+    let federation_name = config.global.federation_name();
 
-    let module_list: Vec<String> = client
-        .get_config()
+    let module_list: Vec<String> = config
         .modules
         .iter()
         .map(|(_id, ClientModuleConfig { kind, .. })| kind.to_string())
@@ -475,6 +458,8 @@ impl ClientModuleInit for RoastrClientInit {
             frost: frost::new_with_synthetic_nonces::<Sha256, rand::rngs::OsRng>(),
             admin_auth: args.admin_auth().cloned(),
             nostr_client,
+            federation_id: *args.federation_id(),
+            client_ctx: args.context(),
         })
     }
 }

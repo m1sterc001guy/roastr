@@ -16,6 +16,7 @@ path = "src/lib.rs"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = "0.1.73"
+bitcoin = { workspace = true }
 bincode2 = "2.0.1"
 fedimint-core ={ workspace = true }
 nostr-sdk = { workspace = true }
