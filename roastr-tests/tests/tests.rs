@@ -52,7 +52,9 @@ async fn new_admin_client(
     auth: ApiAuth,
 ) -> ClientHandleArc {
     info!(target: LOG_TEST, "Setting new client with config");
-    let mut client_builder = Client::builder(MemDatabase::new().into());
+    let mut client_builder = Client::builder(MemDatabase::new().into())
+        .await
+        .expect("Failed to create ClientBuilder");
     let mut client_module_registry = ClientModuleInitRegistry::new();
     client_module_registry.attach(DummyClientInit);
     client_module_registry.attach(WalletClientInit::default());
@@ -67,6 +69,7 @@ async fn new_admin_client(
         .join(
             PlainRootSecretStrategy::to_root_secret(&client_secret),
             client_config,
+            None,
         )
         .await
         .map(Arc::new)
@@ -79,9 +82,7 @@ async fn create_admin_clients(
     num_peers: u16,
     password: String,
 ) -> anyhow::Result<BTreeMap<PeerId, Arc<ClientHandle>>> {
-    let client_config =
-        fedimint_server::config::ClientConfig::download_from_invite_code(&fed.invite_code())
-            .await?;
+    let client_config = fedimint_api_client::download_from_invite_code(&fed.invite_code()).await?;
     let mut admin_clients = BTreeMap::new();
     for peer_id in 0..num_peers {
         let admin_client = new_admin_client(
@@ -186,8 +187,9 @@ async fn wait_for_signing_sessions(
 #[tokio::test(flavor = "multi_thread")]
 async fn can_sign_with_degraded() -> anyhow::Result<()> {
     let fixtures = fixtures();
-    // `new_fed` always creates a 4 member federation with one guardian offline
-    let fed = fixtures.new_fed().await;
+    // `new_default_fed` always creates a 4 member federation with one guardian
+    // offline
+    let fed = fixtures.new_default_fed().await;
     let user_client = fed.new_client().await;
 
     let admin_clients = create_admin_clients(&fed, 3, "pass".to_string()).await?;
@@ -246,7 +248,7 @@ async fn can_sign_with_degraded() -> anyhow::Result<()> {
 async fn all_guardians_sign_note() -> anyhow::Result<()> {
     let num_peers = 4;
     let fixtures = fixtures();
-    let fed = fixtures.new_fed_with_peers(num_peers, 0).await;
+    let fed = fixtures.new_fed_builder().num_peers(4).build().await;
     let user_client = fed.new_client().await;
 
     let admin_clients = create_admin_clients(&fed, num_peers, "pass".to_string()).await?;
@@ -320,7 +322,11 @@ async fn all_guardians_sign_note() -> anyhow::Result<()> {
 async fn all_guardians_sign_federation_announcement() -> anyhow::Result<()> {
     let num_peers = 4;
     let fixtures = fixtures();
-    let fed = fixtures.new_fed_with_peers(num_peers, 0).await;
+    let fed = fixtures
+        .new_fed_builder()
+        .num_peers(num_peers)
+        .build()
+        .await;
     let user_client = fed.new_client().await;
 
     let admin_clients = create_admin_clients(&fed, num_peers, "pass".to_string()).await?;
@@ -335,9 +341,11 @@ async fn all_guardians_sign_federation_announcement() -> anyhow::Result<()> {
     let guardian0 = admin_clients
         .get(&0.into())
         .expect("Admin clients has guardian 0");
+    let roastr0 = guardian0.get_first_module::<RoastrClientModule>();
     let event_id = create_federation_announcement(
-        guardian0.clone(),
+        &roastr0,
         Some("Testing Roastr Federation Announcements".to_string()),
+        bitcoin::Network::Regtest,
     )
     .await?;
 

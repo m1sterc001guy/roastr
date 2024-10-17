@@ -1,7 +1,6 @@
 use std::{ffi, iter};
 
 use clap::Parser;
-use fedimint_client::ClientHandleArc;
 use roastr_common::EventId;
 use serde::Serialize;
 use serde_json::json;
@@ -29,13 +28,13 @@ enum Commands {
     GetNumNonces,
     CreateFederationAnnouncement {
         description: Option<String>,
+        network: bitcoin::Network,
     },
 }
 
 pub(crate) async fn handle_cli_command(
     roastr: &RoastrClientModule,
     args: &[ffi::OsString],
-    client: ClientHandleArc,
 ) -> anyhow::Result<serde_json::Value> {
     let command =
         Commands::parse_from(iter::once(&ffi::OsString::from("roastr")).chain(args.iter()));
@@ -63,8 +62,11 @@ pub(crate) async fn handle_cli_command(
             let num_nonces = roastr.get_num_nonces().await?;
             json!(num_nonces)
         }
-        Commands::CreateFederationAnnouncement { description } => {
-            let event_id = create_federation_announcement(client, description).await?;
+        Commands::CreateFederationAnnouncement {
+            description,
+            network,
+        } => {
+            let event_id = create_federation_announcement(roastr, description, network).await?;
             json!({
                 "event_id": event_id,
             })

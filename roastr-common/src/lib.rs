@@ -540,7 +540,7 @@ impl Deref for RoastrKey {
     }
 }
 
-#[derive(Debug, Clone, Encodable, Decodable, Serialize, Deserialize)]
+#[derive(Debug, Clone, Encodable, Decodable, Serialize, Deserialize, Eq, PartialEq)]
 pub struct SignatureShare {
     pub share: PublicScalar,
     pub nonce: NonceKeyPair,

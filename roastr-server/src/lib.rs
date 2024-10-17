@@ -16,13 +16,12 @@ use fedimint_core::module::audit::Audit;
 use fedimint_core::module::{
     api_endpoint, ApiEndpoint, ApiVersion, CoreConsensusVersion, IDynCommonModuleInit, InputMeta,
     ModuleConsensusVersion, ModuleInit, PeerHandle, ServerModuleInit, ServerModuleInitArgs,
-    SupportedModuleApiVersions, TransactionItemAmount,
+    SupportedModuleApiVersions, TransactionItemAmount, CORE_CONSENSUS_VERSION,
 };
 use fedimint_core::server::DynServerModule;
 use fedimint_core::{push_db_pair_items, OutPoint, PeerId, ServerModule};
-use fedimint_server::check_auth;
 use fedimint_server::config::distributedgen::PeerHandleOps;
-use fedimint_server::config::CORE_CONSENSUS_VERSION;
+use fedimint_server::net::api::check_auth;
 use futures::StreamExt;
 use itertools::Itertools;
 use rand::rngs::OsRng;

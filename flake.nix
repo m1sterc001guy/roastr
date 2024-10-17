@@ -20,7 +20,7 @@
 
     fedimint = {
       url =
-        "github:fedimint/fedimint?rev=a41e3a7e31ce0f26058206a04f1cd49ef2b12fe3";
+        "github:fedimint/fedimint?rev=1813069d5d18a29f611a423990e8013a7331d2a2";
     };
     advisory-db = {
       url = "github:rustsec/advisory-db";
