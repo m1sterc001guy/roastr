@@ -12,13 +12,6 @@ name = "roastr_tests"
 path = "tests/tests.rs"
 
 [dependencies]
-#fedimint-dummy-client = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-#fedimint-dummy-common = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-#fedimint-dummy-server = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-#fedimint-wallet-client = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-#fedimint-wallet-common = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-#fedimint-wallet-server = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-
 fedimint-dummy-client = "0.4.3"
 fedimint-dummy-common = "0.4.3"
 fedimint-dummy-server = "0.4.3"

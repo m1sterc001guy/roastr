@@ -25,17 +25,6 @@ license-file = "LICENSE"
 keywords = ["bitcoin", "lightning", "chaumian", "e-cash", "federated"]
 
 [workspace.dependencies]
-#fedimintd = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-#fedimint-cli = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-#fedimint-core = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-#fedimint-server = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-#fedimint-client = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-#fedimint-logging = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-#fedimint-testing = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-#devimint = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-#aead = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-#tbs = { git = "https://github.com/m1sterc001guy/fedimint", rev = "2541b9705aefde724d55683aa46fb6997d312d7e" }
-
 fedimintd = "0.4.3"
 fedimint-api-client = "0.4.3"
 fedimint-cli = "0.4.3"
