@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::ops::Deref;
 use std::time::{Duration, SystemTime};
 use std::{ffi, mem};
@@ -24,8 +24,8 @@ use nostr_sdk::{
     Alphabet, Client, JsonUtil, Keys, Kind, SingleLetterTag, Tag, TagKind, ToBech32, Url,
 };
 use roastr_common::endpoint_constants::{
-    CREATE_NOTE_ENDPOINT, GET_EVENT_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, GET_NUM_NONCES_ENDPOINT,
-    SIGN_NOTE_ENDPOINT,
+    CREATE_NOTE_ENDPOINT, GET_EVENTS_ENDPOINT, GET_EVENT_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT,
+    GET_NUM_NONCES_ENDPOINT, SIGN_NOTE_ENDPOINT,
 };
 use roastr_common::{
     peer_id_to_scalar, EventId, Frost, GetUnsignedEventRequest, RoastrCommonInit, RoastrKey,
@@ -114,6 +114,19 @@ impl RoastrClientModule {
             nostr_sdk::EventBuilder::text_note(text, []).to_unsigned_event(public_key),
         );
         self.request_create_note(unsigned_event).await
+    }
+
+    /// Queries the federation for available notes to sign
+    pub async fn get_all_notes(&self) -> anyhow::Result<HashSet<(EventId, UnsignedEvent)>> {
+        let admin_auth = self
+            .admin_auth
+            .clone()
+            .ok_or(anyhow::anyhow!("Admin auth not set"))?;
+        let notes: HashSet<(EventId, UnsignedEvent)> = self
+            .module_api
+            .request_admin(GET_EVENTS_ENDPOINT, ApiRequestErased::default(), admin_auth)
+            .await?;
+        Ok(notes)
     }
 
     /// Requests the guardians of the federation to sign the Nostr
@@ -233,7 +246,7 @@ impl RoastrClientModule {
     pub async fn create_signed_note(&self, event_id: EventId) -> anyhow::Result<nostr_sdk::Event> {
         let threshold = self.frost_key.threshold();
         // Verify that at least a `threshold` number of signature shares have been
-        // provided, otherwise we cannot sign the note.
+        // provided, otherwise we cannot create the signature.
         let signing_sessions = self.get_signing_sessions(event_id).await?;
         for (peers, signatures) in signing_sessions {
             let sorted_peers = peers

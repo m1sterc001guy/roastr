@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::ops::Deref;
 
 use anyhow::anyhow;
@@ -30,8 +30,8 @@ use roastr_common::config::{
     RoastrConfigPrivate, RoastrGenParams,
 };
 use roastr_common::endpoint_constants::{
-    CREATE_NOTE_ENDPOINT, GET_EVENT_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT, GET_NUM_NONCES_ENDPOINT,
-    SIGN_NOTE_ENDPOINT,
+    CREATE_NOTE_ENDPOINT, GET_EVENTS_ENDPOINT, GET_EVENT_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT,
+    GET_NUM_NONCES_ENDPOINT, SIGN_NOTE_ENDPOINT,
 };
 use roastr_common::{
     peer_id_to_scalar, EventId, Frost, GetUnsignedEventRequest, NonceKeyPair, Point, PublicScalar,
@@ -631,6 +631,16 @@ impl ServerModule for Roastr {
                     Ok(nonces)
                 }
             },
+            api_endpoint! {
+                GET_EVENTS_ENDPOINT,
+                ApiVersion::new(0, 0),
+                async |roastr: &Roastr, context, _v: ()| -> HashSet<(EventId, UnsignedEvent)> {
+                    check_auth(context)?;
+                    let mut dbtx = context.dbtx();
+                    let events = roastr.get_all_events(&mut dbtx.to_ref_nc()).await;
+                    Ok(events)
+                }
+            },
         ]
     }
 }
@@ -799,6 +809,26 @@ impl Roastr {
             nonce: my_nonce,
             unsigned_event,
         }
+    }
+
+    async fn get_all_events(
+        &self,
+        dbtx: &mut DatabaseTransaction<'_>,
+    ) -> HashSet<(EventId, UnsignedEvent)> {
+        // TODO: Validate that we dont have a signature share before returning note
+        dbtx.find_by_prefix(&SessionNoncePrefix)
+            .await
+            .filter_map(|(_, session_nonces)| async move {
+                if session_nonces.nonces.is_empty() {
+                    None
+                } else {
+                    let unsigned_event = session_nonces.unsigned_event;
+                    let event_id = unsigned_event.compute_id();
+                    Some((event_id, unsigned_event))
+                }
+            })
+            .collect::<HashSet<_>>()
+            .await
     }
 }
 

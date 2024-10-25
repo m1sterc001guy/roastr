@@ -30,6 +30,7 @@ enum Commands {
         description: Option<String>,
         network: bitcoin::Network,
     },
+    GetSignableNotes,
 }
 
 pub(crate) async fn handle_cli_command(
@@ -70,6 +71,10 @@ pub(crate) async fn handle_cli_command(
             json!({
                 "event_id": event_id,
             })
+        }
+        Commands::GetSignableNotes => {
+            let signable_notes = roastr.get_all_notes().await?;
+            json!(signable_notes)
         }
     };
 
