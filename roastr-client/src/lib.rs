@@ -1,10 +1,11 @@
-use std::collections::BTreeMap;
-use std::ffi;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Deref;
+use std::time::{Duration, SystemTime};
+use std::{ffi, mem};
 
 use bitcoin::Network;
-use fedimint_api_client::api::{DynModuleApi, FederationApiExt};
-use fedimint_api_client::query::ThresholdConsensus;
+use fedimint_api_client::api::{self, DynModuleApi, FederationApiExt};
+use fedimint_api_client::query::{QueryStep, QueryStrategy};
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
 use fedimint_client::module::{ClientContext, ClientModule, IClientModule};
@@ -16,7 +17,8 @@ use fedimint_core::db::{DatabaseTransaction, DatabaseVersion};
 use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::invite_code::InviteCode;
 use fedimint_core::module::{ApiAuth, ApiRequestErased, ApiVersion, ModuleCommon, MultiApiVersion};
-use fedimint_core::{apply, async_trait_maybe_send, Amount, NumPeersExt, PeerId};
+use fedimint_core::time::now;
+use fedimint_core::{apply, async_trait_maybe_send, Amount, PeerId};
 use nostr_sdk::secp256k1::schnorr::Signature;
 use nostr_sdk::{
     Alphabet, Client, JsonUtil, Keys, Kind, SingleLetterTag, Tag, TagKind, ToBech32, Url,
@@ -275,7 +277,10 @@ impl RoastrClientModule {
         let sig_shares: BTreeMap<PeerId, BTreeMap<String, SignatureShare>> = self
             .module_api
             .request_with_strategy(
-                ThresholdConsensus::new(self.module_api.all_peers().to_num_peers()),
+                ThresholdOrDeadline::new(
+                    self.module_api.all_peers().len(),
+                    now() + Duration::from_secs(2),
+                ),
                 GET_EVENT_SESSIONS_ENDPOINT.to_string(),
                 ApiRequestErased::new(event_id),
             )
@@ -448,10 +453,27 @@ impl ClientModuleInit for RoastrClientInit {
         let frost_key = args.cfg().frost_key.clone();
         let keys = Keys::from_public_key(frost_key.public_key());
         let nostr_client = Client::new(&keys);
-        // "Blastr" relay
+        nostr_client.add_relay("wss://nostr.zebedee.cloud").await?;
+        nostr_client.add_relay("wss://relay.plebstr.com").await?;
+        nostr_client.add_relay("wss://relay.nostr.band").await?;
+        nostr_client.add_relay("wss://relayer.fiatjaf.com").await?;
         nostr_client
-            .add_relay("wss://nostr.mutinywallet.com")
+            .add_relay("wss://nostr-01.bolt.observer")
             .await?;
+        nostr_client
+            .add_relay("wss://nostr.bitcoiner.social")
+            .await?;
+        nostr_client
+            .add_relay("wss://nostr-relay.wlvs.space")
+            .await?;
+        nostr_client.add_relay("wss://relay.nostr.info").await?;
+        nostr_client
+            .add_relay("wss://nostr-pub.wellorder.net")
+            .await?;
+        nostr_client
+            .add_relay("wss://nostr1.tunnelsats.com")
+            .await?;
+        nostr_client.add_relay("wss://relay.damus.io").await?;
         Ok(RoastrClientModule {
             frost_key,
             module_api: args.module_api().clone(),
@@ -488,5 +510,50 @@ impl State for RoastrClientStateMachine {
 
     fn operation_id(&self) -> fedimint_core::core::OperationId {
         OperationId::new_random()
+    }
+}
+
+/// Query strategy that returns when enough peers responded or a deadline passed
+pub struct ThresholdOrDeadline<R> {
+    deadline: SystemTime,
+    threshold: usize,
+    responses: BTreeMap<PeerId, R>,
+}
+
+impl<R> ThresholdOrDeadline<R> {
+    pub fn new(threshold: usize, deadline: SystemTime) -> Self {
+        Self {
+            deadline,
+            threshold,
+            responses: BTreeMap::default(),
+        }
+    }
+}
+
+impl<R> QueryStrategy<R, BTreeMap<PeerId, R>> for ThresholdOrDeadline<R> {
+    fn process(
+        &mut self,
+        peer: PeerId,
+        result: api::PeerResult<R>,
+    ) -> QueryStep<BTreeMap<PeerId, R>> {
+        match result {
+            Ok(response) => {
+                assert!(self.responses.insert(peer, response).is_none());
+
+                if self.threshold <= self.responses.len() || self.deadline <= now() {
+                    QueryStep::Success(mem::take(&mut self.responses))
+                } else {
+                    QueryStep::Continue
+                }
+            }
+            // we rely on retries and timeouts to detect a deadline passing
+            Err(_) => {
+                if self.deadline <= now() {
+                    QueryStep::Success(mem::take(&mut self.responses))
+                } else {
+                    QueryStep::Retry(BTreeSet::from([peer]))
+                }
+            }
+        }
     }
 }

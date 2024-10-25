@@ -379,7 +379,18 @@ impl ServerModule for Roastr {
     ) -> anyhow::Result<()> {
         match consensus_item {
             RoastrConsensusItem::Nonce(nonce) => {
-                let my_peer_id = self.cfg.private.my_peer_id;
+                let nonces = dbtx
+                    .find_by_prefix(&NoncePeerPrefix { peer_id })
+                    .await
+                    .collect::<Vec<_>>()
+                    .await;
+                let num_nonces = self.cfg.consensus.num_nonces;
+
+                // Ignore any nonces that are beyond the threshold
+                if nonces.len() >= num_nonces as usize {
+                    return Ok(());
+                }
+
                 dbtx.insert_new_entry(
                     &NonceKey {
                         peer_id,
@@ -396,6 +407,7 @@ impl ServerModule for Roastr {
                     .await
                     .len();
 
+                let my_peer_id = self.cfg.private.my_peer_id;
                 tracing::info!(
                     ?my_peer_id,
                     ?peer_id,
@@ -404,9 +416,21 @@ impl ServerModule for Roastr {
                 );
             }
             RoastrConsensusItem::SigningSession((unsigned_event, signing_session)) => {
-                // Deterministically dequeue the nonces from the pre-preared list and assign
-                // them to this signing session
                 let event_id = unsigned_event.compute_id();
+                let previous_session = dbtx
+                    .get_value(&SessionNonceKey {
+                        event_id,
+                        signing_session: signing_session.clone(),
+                    })
+                    .await;
+                if previous_session.is_some()
+                    && !previous_session.expect("already checked").nonces.is_empty()
+                {
+                    return Ok(());
+                }
+
+                // Deterministically dequeue the nonces from the pre-prepared list and assign
+                // them to this signing session
                 let my_peer_id = self.cfg.private.my_peer_id;
                 match self.dequeue_nonces(dbtx, &signing_session).await {
                     Ok(nonces) => {
