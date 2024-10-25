@@ -248,7 +248,12 @@ async fn can_sign_with_degraded() -> anyhow::Result<()> {
 async fn all_guardians_sign_note() -> anyhow::Result<()> {
     let num_peers = 4;
     let fixtures = fixtures();
-    let fed = fixtures.new_fed_builder().num_peers(4).build().await;
+    let fed = fixtures
+        .new_fed_builder()
+        .num_peers(4)
+        .num_offline(0)
+        .build()
+        .await;
     let user_client = fed.new_client().await;
 
     let admin_clients = create_admin_clients(&fed, num_peers, "pass".to_string()).await?;
@@ -325,6 +330,7 @@ async fn all_guardians_sign_federation_announcement() -> anyhow::Result<()> {
     let fed = fixtures
         .new_fed_builder()
         .num_peers(num_peers)
+        .num_offline(0)
         .build()
         .await;
     let user_client = fed.new_client().await;
