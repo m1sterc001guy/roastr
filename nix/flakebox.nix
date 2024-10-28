@@ -501,27 +501,8 @@ rec {
     pname = "fedimint-pkgs";
 
     packages = [
-      "fedimintd"
-      "fedimint-cli"
-      "fedimint-dbtool"
-      "fedimint-recoverytool"
-    ];
-  };
-
-  gateway-pkgs = fedimintBuildPackageGroup {
-    pname = "gateway-pkgs";
-
-    packages = [
-      "fedimint-ln-gateway"
-      "fedimint-gateway-cli"
-    ];
-  };
-
-  client-pkgs = fedimintBuildPackageGroup {
-    pname = "client-pkgs";
-
-    packages = [
-      "fedimint-client"
+      "roastr"
+      "roastr-cli"
     ];
   };
 
@@ -530,11 +511,6 @@ rec {
     packages = [
       "devimint"
     ];
-  };
-
-  fedimint-load-test-tool = fedimintBuildPackageGroup {
-    pname = "fedimint-load-test-tool";
-    packages = [ "fedimint-load-test-tool" ];
   };
 
 
@@ -549,33 +525,6 @@ rec {
       pkg = fedimint-pkgs;
       bin = "fedimint-cli";
     };
-  fedimint-dbtool = flakeboxLib.pickBinary
-    {
-      pkg = fedimint-pkgs;
-      bin = "fedimint-dbtool";
-    };
-  gatewayd = flakeboxLib.pickBinary
-    {
-      pkg = gateway-pkgs;
-      bin = "gatewayd";
-    };
-  gateway-cli = flakeboxLib.pickBinary
-    {
-      pkg = gateway-pkgs;
-      bin = "gateway-cli";
-    };
-
-  gateway-cln-extension = flakeboxLib.pickBinary
-    {
-      pkg = gateway-pkgs;
-      bin = "gateway-cln-extension";
-    };
-
-  fedimint-recoverytool = flakeboxLib.pickBinary
-    {
-      pkg = fedimint-pkgs;
-      bin = "fedimint-recoverytool";
-    };
 
   container =
     let
@@ -585,8 +534,8 @@ rec {
         '';
     in
     {
-      fedimintd = pkgs.dockerTools.buildLayeredImage {
-        name = "fedimintd";
+      fedimintd-roastr = pkgs.dockerTools.buildLayeredImage {
+        name = "fedimintd-roastr";
         contents = [
           fedimint-pkgs
           pkgs.bash
@@ -611,8 +560,8 @@ rec {
         };
       };
 
-      fedimint-cli = pkgs.dockerTools.buildLayeredImage {
-        name = "fedimint-cli";
+      fedimint-cli-roastr = pkgs.dockerTools.buildLayeredImage {
+        name = "fedimint-cli-roastr";
         contents = [ fedimint-pkgs pkgs.bash pkgs.coreutils ];
         config = {
           Cmd = [
@@ -621,31 +570,11 @@ rec {
         };
       };
 
-      gatewayd = pkgs.dockerTools.buildLayeredImage {
-        name = "gatewayd";
-        contents = [ gateway-pkgs pkgs.bash pkgs.coreutils ];
-        config = {
-          Cmd = [
-            "${gateway-pkgs}/bin/gatewayd"
-          ];
-        };
-      };
-
-      gateway-cli = pkgs.dockerTools.buildLayeredImage {
-        name = "gateway-cli";
-        contents = [ gateway-pkgs pkgs.bash pkgs.coreutils ];
-        config = {
-          Cmd = [
-            "${gateway-pkgs}/bin/gateway-cli"
-          ];
-        };
-      };
-
       devtools =
         pkgs.dockerTools.buildLayeredImage
           {
             name = "fedimint-devtools";
-            contents = [ devimint fedimint-dbtool fedimint-load-test-tool pkgs.bash pkgs.coreutils fedimint-recoverytool ];
+            contents = [ devimint pkgs.bash pkgs.coreutils ];
             config = {
               Cmd = [
                 "${pkgs.bash}/bin/bash"
