@@ -12,8 +12,8 @@ use fedimint_client::module::{ClientContext, ClientModule, IClientModule};
 use fedimint_client::sm::{Context, DynState, State};
 use fedimint_client::DynGlobalClientContext;
 use fedimint_core::config::{ClientModuleConfig, FederationId};
-use fedimint_core::core::{Decoder, IntoDynInstance, ModuleInstanceId, OperationId};
-use fedimint_core::db::{DatabaseTransaction, DatabaseVersion};
+use fedimint_core::core::{Decoder, IntoDynInstance, ModuleInstanceId, ModuleKind, OperationId};
+use fedimint_core::db::DatabaseTransaction;
 use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::invite_code::InviteCode;
 use fedimint_core::module::{ApiAuth, ApiRequestErased, ApiVersion, ModuleCommon, MultiApiVersion};
@@ -29,7 +29,7 @@ use roastr_common::endpoint_constants::{
 };
 use roastr_common::{
     peer_id_to_scalar, EventId, Frost, GetUnsignedEventRequest, RoastrCommonInit, RoastrKey,
-    RoastrModuleTypes, SignatureShare, SigningSession, UnsignedEvent,
+    RoastrModuleTypes, SignatureShare, SigningSession, UnsignedEvent, KIND,
 };
 use schnorr_fun::{frost, Message};
 use serde::{Deserialize, Serialize};
@@ -64,7 +64,9 @@ pub struct RoastrClientContext {
     pub decoder: Decoder,
 }
 
-impl Context for RoastrClientContext {}
+impl Context for RoastrClientContext {
+    const KIND: Option<ModuleKind> = Some(KIND);
+}
 
 #[apply(async_trait_maybe_send!)]
 impl ClientModule for RoastrClientModule {
@@ -81,13 +83,21 @@ impl ClientModule for RoastrClientModule {
     }
 
     // Roastr module does not support transactions so `input_amount` is not required
-    fn input_fee(&self, _input: &<Self::Common as ModuleCommon>::Input) -> Option<Amount> {
+    fn input_fee(
+        &self,
+        _amount: Amount,
+        _input: &<Self::Common as ModuleCommon>::Input,
+    ) -> Option<Amount> {
         None
     }
 
     // Roastr module does not support transactions so `output_amount` is not
     // required
-    fn output_fee(&self, _output: &<Self::Common as ModuleCommon>::Output) -> Option<Amount> {
+    fn output_fee(
+        &self,
+        _amount: Amount,
+        _output: &<Self::Common as ModuleCommon>::Output,
+    ) -> Option<Amount> {
         None
     }
 
@@ -110,9 +120,8 @@ impl RoastrClientModule {
     /// Creates a Nostr Text note and proposes it to consensus for signing.
     pub async fn create_note(&self, text: String) -> anyhow::Result<EventId> {
         let public_key = self.frost_key.public_key();
-        let unsigned_event = UnsignedEvent::new(
-            nostr_sdk::EventBuilder::text_note(text, []).to_unsigned_event(public_key),
-        );
+        let unsigned_event =
+            UnsignedEvent::new(nostr_sdk::EventBuilder::text_note(text).build(public_key));
         self.request_create_note(unsigned_event).await
     }
 
@@ -174,17 +183,17 @@ impl RoastrClientModule {
             m
         };
 
-        let d_tag = Tag::Identifier(federation_id.to_string());
-        let n_tag = Tag::Generic(
+        let d_tag = Tag::identifier(federation_id.to_string());
+        let n_tag = Tag::custom(
             TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::N)),
             vec![network.to_string()],
         );
-        let modules_tag = Tag::Generic(
-            TagKind::Custom("modules".to_string()),
+        let modules_tag = Tag::custom(
+            TagKind::custom("modules".to_string()),
             vec![modules.join(",")],
         );
         let u_tags = invite_codes.into_iter().map(|code| {
-            Tag::Generic(
+            Tag::custom(
                 TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::U)),
                 vec![code],
             )
@@ -194,8 +203,9 @@ impl RoastrClientModule {
         tags.extend(u_tags);
 
         let unsigned_event = UnsignedEvent::new(
-            nostr_sdk::EventBuilder::new(Kind::from(38173), metadata.as_json(), tags)
-                .to_unsigned_event(public_key),
+            nostr_sdk::EventBuilder::new(Kind::from(38173), metadata.as_json())
+                .tags(tags)
+                .build(public_key),
         );
 
         self.request_create_note(unsigned_event).await
@@ -442,7 +452,6 @@ pub struct RoastrClientInit;
 
 impl fedimint_core::module::ModuleInit for RoastrClientInit {
     type Common = RoastrCommonInit;
-    const DATABASE_VERSION: DatabaseVersion = DatabaseVersion(0);
 
     async fn dump_database(
         &self,
@@ -464,8 +473,9 @@ impl ClientModuleInit for RoastrClientInit {
 
     async fn init(&self, args: &ClientModuleInitArgs<Self>) -> anyhow::Result<Self::Module> {
         let frost_key = args.cfg().frost_key.clone();
-        let keys = Keys::from_public_key(frost_key.public_key());
-        let nostr_client = Client::new(&keys);
+        let keys = Keys::parse(&frost_key.public_key().to_hex())
+            .expect("Could not parse frost public key");
+        let nostr_client = Client::builder().signer(keys).build();
         nostr_client.add_relay("wss://nostr.zebedee.cloud").await?;
         nostr_client.add_relay("wss://relay.plebstr.com").await?;
         nostr_client.add_relay("wss://relay.nostr.band").await?;

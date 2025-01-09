@@ -99,6 +99,7 @@ pub struct RoastrModuleTypes;
 
 // Wire together the types for this module
 plugin_types_trait_impl_common!(
+    KIND,
     RoastrModuleTypes,
     RoastrClientConfig,
     RoastrInput,
@@ -119,7 +120,7 @@ impl CommonModuleInit for RoastrCommonInit {
     type ClientConfig = RoastrClientConfig;
 
     fn decoder() -> Decoder {
-        RoastrModuleTypes::decoder_builder().build()
+        RoastrModuleTypes::decoder()
     }
 }
 
@@ -228,9 +229,9 @@ impl UnsignedEvent {
     pub fn compute_id(&self) -> EventId {
         EventId::new(NdkEventId::new(
             &self.pubkey,
-            self.created_at,
+            &self.created_at,
             &self.kind,
-            &self.tags,
+            &self.tags.as_slice(),
             &self.content,
         ))
     }

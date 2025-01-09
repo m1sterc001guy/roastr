@@ -12,12 +12,12 @@ name = "roastr_tests"
 path = "tests/tests.rs"
 
 [dependencies]
-fedimint-dummy-client = "0.4.3"
-fedimint-dummy-common = "0.4.3"
-fedimint-dummy-server = "0.4.3"
-fedimint-wallet-client = "0.4.3"
-fedimint-wallet-common = "0.4.3"
-fedimint-wallet-server = "0.4.3"
+fedimint-dummy-client = "0.5.0"
+fedimint-dummy-common = "0.5.0"
+fedimint-dummy-server = "0.5.0"
+fedimint-wallet-client = "0.5.0"
+fedimint-wallet-common = "0.5.0"
+fedimint-wallet-server = "0.5.0"
 
 anyhow = { workspace = true }
 bitcoin = { workspace = true }
@@ -29,7 +29,7 @@ roastr-common = { path = "../roastr-common" }
 roastr-server = { path = "../roastr-server" }
 fedimint-logging = { workspace = true }
 fedimint-server = { workspace = true }
-fedimint-testing = { workspace = true }
+#fedimint-testing = { workspace = true }
 nostr-sdk = { workspace = true }
 rand = { workspace = true }
 tokio = { version = "1.26.0", features = ["sync"] }

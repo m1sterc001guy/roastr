@@ -25,26 +25,35 @@ license-file = "LICENSE"
 keywords = ["bitcoin", "lightning", "chaumian", "e-cash", "federated"]
 
 [workspace.dependencies]
-fedimintd = "0.4.3"
-fedimint-api-client = "0.4.3"
-fedimint-cli = "0.4.3"
-fedimint-core = "0.4.3"
-fedimint-server = "0.4.3"
-fedimint-client = "0.4.3"
-fedimint-logging = "0.4.3"
-fedimint-testing = "0.4.3"
-devimint = "0.4.3"
-aead = "0.4.3"
-tbs = "0.4.3"
+fedimintd = "0.5.0"
+fedimint-api-client = "0.5.0"
+fedimint-cli = "0.5.0"
+fedimint-core = "0.5.0"
+fedimint-server = "0.5.0"
+fedimint-client = "0.5.0"
+fedimint-logging = "0.5.0"
+fedimint-testing = "0.5.0"
+devimint = "0.5.0"
+aead = "0.5.0"
+tbs = "0.5.0"
 
+bitcoin = { version = "0.32.5", features = ["serde"] }
 anyhow = "1.0.66"
-clap = { version = "4.5.4", features = ["derive", "std", "help", "usage", "error-context", "suggestions", "env"], default-features = false }
-nostr-sdk = "0.30.0"
-bitcoin = "0.29.2"
-schnorr_fun = { version = "0.10.0", features = [ "serde", "bincode" ]}
+clap = { version = "4.5.4", features = [
+    "derive",
+    "std",
+    "help",
+    "usage",
+    "error-context",
+    "suggestions",
+    "env",
+], default-features = false }
+nostr-sdk = "0.38.0"
+schnorr_fun = { version = "0.10.0", features = ["serde", "bincode"] }
 tracing = "0.1.37"
 rand = "0.8.5"
 sha2 = "0.10"
+tikv-jemallocator = "0.5"
 
 # Comment above lines and uncomment these to work with local fedimint dependencies
 #fedimintd = { path = "../fedimint/fedimintd" }
@@ -70,6 +79,7 @@ secp256k1-zkp-sys = { opt-level = 3 }
 bitcoin_hashes = { opt-level = 3 }
 ff = { opt-level = 3 }
 group = { opt-level = 3 }
+tikv-jemalloc-sys = { opt-level = 3 }
 pairing = { opt-level = 3 }
 rand_core = { opt-level = 3 }
 byteorder = { opt-level = 3 }

@@ -13,7 +13,7 @@ path = "src/main.rs"
 anyhow = { workspace = true }
 fedimint-cli = { workspace = true }
 fedimint-core = { workspace = true }
-roastr-client = { path = "../roastr-client", features = [ "cli" ] }
+roastr-client = { path = "../roastr-client", features = ["cli"] }
 tokio = { version = "1.25.0", features = ["full", "tracing"] }
 
 [build-dependencies]

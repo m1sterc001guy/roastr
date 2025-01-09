@@ -11,7 +11,7 @@ name = "roastr_client"
 path = "src/lib.rs"
 
 [features]
-default =[]
+default = []
 cli = ["dep:clap"]
 
 [dependencies]
@@ -19,11 +19,11 @@ async-trait = "0.1.73"
 anyhow = { workspace = true }
 bitcoin = { workspace = true }
 clap = { workspace = true, optional = true }
-roastr-common ={ path = "../roastr-common" }
+roastr-common = { path = "../roastr-common" }
 fedimint-api-client = { workspace = true }
 fedimint-client = { workspace = true }
-fedimint-core ={ workspace = true }
-fedimint-wallet-client = "0.4.3"
+fedimint-core = { workspace = true }
+fedimint-wallet-client = "0.5.0"
 futures = "0.3"
 erased-serde = "0.4.4"
 nostr-sdk = { workspace = true }
@@ -31,7 +31,7 @@ rand = { workspace = true }
 sha2 = { workspace = true }
 secp256k1 = "0.29.0"
 schnorr_fun = { workspace = true }
-serde = {version = "1.0.149", features = [ "derive" ] }
+serde = { version = "1.0.149", features = ["derive"] }
 serde_json = { version = "1.0.91", features = ["preserve_order"] }
 strum = "0.26.2"
 strum_macros = "0.26.2"
