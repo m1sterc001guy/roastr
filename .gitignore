@@ -4,3 +4,4 @@
 .tmpenv
 .direnv
 .vscode
+target-nix/
