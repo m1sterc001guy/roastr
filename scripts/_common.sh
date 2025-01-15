@@ -1,7 +1,10 @@
 # shellcheck shell=bash
 
+export CARGO_BUILD_TARGET_DIR="${CARGO_BUILD_TARGET_DIR:-"$REPO_ROOT/target"}"
+export CARGO_BUILD_TARGET_BIN_DIR="${CARGO_BUILD_TARGET_DIR:-$PWD/target}/${CARGO_PROFILE_DIR:-debug}"
+
 function add_target_dir_to_path() {
-  export PATH="$PWD/target/${CARGO_PROFILE:-debug}:$PATH"
+  export PATH="${CARGO_BUILD_TARGET_BIN_DIR}:$PATH"
 }
 
 function build_workspace() {
