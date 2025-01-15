@@ -33,11 +33,12 @@ fedimint-server = "0.5.0"
 fedimint-client = "0.5.0"
 fedimint-logging = "0.5.0"
 fedimint-testing = "0.5.0"
-devimint = "0.5.0"
+devimint = { git = "https://github.com/fedimint/fedimint", tag = "v0.5.0" }
 aead = "0.5.0"
-tbs = "0.5.0"
 
+async-trait = "0.1.73"
 bitcoin = { version = "0.32.5", features = ["serde"] }
+bincode2 = "2.0.1"
 anyhow = "1.0.66"
 clap = { version = "4.5.4", features = [
     "derive",
@@ -48,24 +49,22 @@ clap = { version = "4.5.4", features = [
     "suggestions",
     "env",
 ], default-features = false }
+futures = "0.3.28"
+itertools = "0.14.0"
+erased-serde = "0.4.4"
 nostr-sdk = "0.38.0"
 schnorr_fun = { version = "0.10.0", features = ["serde", "bincode"] }
-tracing = "0.1.37"
+tracing = "0.1.41"
 rand = "0.8.5"
+secp256k1 = "0.29.0"
+serde = { version = "1.0.149", features = [ "derive" ] }
+serde_json = { version = "1.0.91", features = ["preserve_order"] }
 sha2 = "0.10"
-tikv-jemallocator = "0.5"
-
-# Comment above lines and uncomment these to work with local fedimint dependencies
-#fedimintd = { path = "../fedimint/fedimintd" }
-#fedimint-cli = { path = "../fedimint/fedimint-cli" }
-#fedimint-core = { path = "../fedimint/fedimint-core" }
-#fedimint-server = { path = "../fedimint/fedimint-server" }
-#fedimint-client = { path = "../fedimint/fedimint-client" }
-#fedimint-logging = { path = "../fedimint/fedimint-logging" }
-#fedimint-testing = { path = "../fedimint/fedimint-testing" }
-#devimint = { path = "../fedimint/devimint" }
-#aead = { path = "../fedimint/aead" }
-#tbs = { path = "../fedimint/tbs" }
+strum = "0.26.2"
+strum_macros = "0.26.2"
+thiserror = "2.0.11"
+tikv-jemallocator = "0.6.0"
+tokio = { version = "1.43.0", features = ["full", "tracing"] }
 
 [profile.dev]
 split-debuginfo = "packed"

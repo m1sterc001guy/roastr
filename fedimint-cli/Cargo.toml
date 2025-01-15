@@ -14,7 +14,7 @@ anyhow = { workspace = true }
 fedimint-cli = { workspace = true }
 fedimint-core = { workspace = true }
 roastr-client = { path = "../roastr-client", features = ["cli"] }
-tokio = { version = "1.25.0", features = ["full", "tracing"] }
+tokio = { workspace = true }
 
 [build-dependencies]
 fedimint-build = { git = "https://github.com/fedimint/fedimint" }

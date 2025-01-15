@@ -12,7 +12,7 @@ path = "src/fedimintd.rs"
 [dependencies]
 anyhow = { workspace = true }
 fedimintd = { workspace = true }
-tokio = { version = "1.25.0", features = ["full", "tracing"] }
+tokio = { workspace = true }
 roastr-server = { path = "../roastr-server" }
 roastr-common = { path = "../roastr-common" }
 rand = { workspace = true }

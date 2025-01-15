@@ -15,14 +15,14 @@ path = "src/lib.rs"
 
 [dependencies]
 anyhow = { workspace = true }
-async-trait = "0.1.73"
+async-trait = { workspace = true }
 bitcoin = { workspace = true }
-bincode2 = "2.0.1"
+bincode2 = { workspace = true }
 fedimint-core ={ workspace = true }
 nostr-sdk = { workspace = true }
 rand = { workspace = true }
 sha2 = { workspace = true }
-serde = { version = "1.0.149", features = ["derive"] }
+serde = { workspace = true }
 schnorr_fun = { workspace = true }
-thiserror = "1.0.39"
+thiserror = { workspace = true }
 tracing = { workspace = true }
