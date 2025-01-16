@@ -7,17 +7,21 @@ description = "A federated nostr client."
 license = "MIT"
 publish = false
 
+[[bin]]
+name = "roastr-devimint-tests"
+path = "bin/tests.rs"
+
 [[test]]
 name = "roastr_tests"
 path = "tests/tests.rs"
 
 [dependencies]
-#anyhow = { workspace = true }
-#devimint = { workspace = true }
+anyhow = { workspace = true }
+devimint = { workspace = true }
 #fedimint-client = { workspace = true }
 #fedimint-core = { workspace = true }
 #roastr-client = { path = "../roastr-client" }
 #roastr-common = { path = "../roastr-common" }
 #fedimint-logging = { workspace = true }
-#tracing = { workspace = true }
-#tokio = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }

@@ -33,14 +33,14 @@ fedimint-server = "0.5.0"
 fedimint-client = "0.5.0"
 fedimint-logging = "0.5.0"
 fedimint-testing = "0.5.0"
-devimint = { git = "https://github.com/fedimint/fedimint", tag = "v0.5.0" }
+devimint = { git = "https://github.com/fedimint/fedimint", tag = "v0.4.3" }
 aead = "0.5.0"
 
-async-trait = "0.1.73"
+async-trait = "0.1.85"
 bitcoin = { version = "0.32.5", features = ["serde"] }
 bincode2 = "2.0.1"
 anyhow = "1.0.66"
-clap = { version = "4.5.4", features = [
+clap = { version = "4.5.26", features = [
     "derive",
     "std",
     "help",
@@ -51,7 +51,7 @@ clap = { version = "4.5.4", features = [
 ], default-features = false }
 futures = "0.3.28"
 itertools = "0.14.0"
-erased-serde = "0.4.4"
+erased-serde = "0.4.5"
 nostr-sdk = "0.38.0"
 schnorr_fun = { version = "0.10.0", features = ["serde", "bincode"] }
 tracing = "0.1.41"
@@ -60,8 +60,8 @@ secp256k1 = "0.29.0"
 serde = { version = "1.0.149", features = [ "derive" ] }
 serde_json = { version = "1.0.91", features = ["preserve_order"] }
 sha2 = "0.10"
-strum = "0.26.2"
-strum_macros = "0.26.2"
+strum = "0.26.3"
+strum_macros = "0.26.4"
 thiserror = "2.0.11"
 tikv-jemallocator = "0.6.0"
 tokio = { version = "1.43.0", features = ["full", "tracing"] }

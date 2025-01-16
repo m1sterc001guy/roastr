@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use std::{ffi, iter};
 
 use clap::Parser;
