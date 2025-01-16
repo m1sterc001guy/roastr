@@ -6351,6 +6351,9 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "devimint",
+ "fedimint-core",
+ "roastr-common",
+ "serde_json",
  "tokio",
  "tracing",
 ]

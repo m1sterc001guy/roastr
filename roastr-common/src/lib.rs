@@ -283,17 +283,18 @@ impl EventId {
 
 impl Encodable for EventId {
     fn consensus_encode<W: std::io::Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
-        self.0.as_bytes().consensus_encode(writer)
+        self.0.to_bytes().consensus_encode(writer)
     }
 }
 
 impl Decodable for EventId {
     fn consensus_decode<R: std::io::Read>(
         r: &mut R,
-        modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
+        _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
     ) -> Result<Self, DecodeError> {
-        let bytes = Vec::<u8>::consensus_decode(r, modules)?;
-        let event_id = NdkEventId::from_slice(bytes.as_slice()).map_err(DecodeError::from_err)?;
+        let mut bytes = [0; 32];
+        r.read_exact(&mut bytes).map_err(DecodeError::from_err)?;
+        let event_id = NdkEventId::from_slice(&bytes).map_err(DecodeError::from_err)?;
         Ok(EventId(event_id))
     }
 }

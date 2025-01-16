@@ -18,10 +18,8 @@ path = "tests/tests.rs"
 [dependencies]
 anyhow = { workspace = true }
 devimint = { workspace = true }
-#fedimint-client = { workspace = true }
-#fedimint-core = { workspace = true }
-#roastr-client = { path = "../roastr-client" }
-#roastr-common = { path = "../roastr-common" }
-#fedimint-logging = { workspace = true }
+fedimint-core = { workspace = true }
+roastr-common = { path = "../roastr-common" }
+serde_json = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
