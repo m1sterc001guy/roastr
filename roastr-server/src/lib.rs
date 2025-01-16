@@ -42,7 +42,7 @@ use roastr_common::{
 use schnorr_fun::fun::poly;
 use schnorr_fun::Message;
 use strum::IntoEnumIterator;
-use tracing::info;
+use tracing::{error, info};
 
 use crate::db::{DbKeyPrefix, NoncePrefix, SessionNonces, SignatureShareKey, SignatureSharePrefix};
 
@@ -657,16 +657,20 @@ impl Roastr {
         dbtx: &mut DatabaseTransaction<'_>,
         event_id: EventId,
     ) -> Option<UnsignedEvent> {
-        let signature = dbtx
-            .find_by_prefix(&SignatureShareEventPrefix { event_id })
+        let unsigned_events = dbtx
+            .find_by_prefix(&SessionNoncePrefix)
             .await
-            .next()
+            .filter_map(|(session_key, session_nonce)| async move {
+                if session_key.event_id == event_id {
+                    Some(session_nonce.unsigned_event)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
             .await;
-        if let Some(signature) = signature {
-            Some(signature.1.unsigned_event)
-        } else {
-            None
-        }
+
+        unsigned_events.into_iter().next()
     }
 
     /// Creates a signature share for the current peer or starts a new signing
@@ -725,6 +729,8 @@ impl Roastr {
                     &SessionNonces::new(unsigned_event.clone()),
                 )
                 .await;
+            } else {
+                error!(?event_id, "No signing session exists for this event");
             }
         }
     }

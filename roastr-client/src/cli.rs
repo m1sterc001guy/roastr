@@ -27,10 +27,17 @@ enum Commands {
     },
     GetNumNonces,
     CreateFederationAnnouncement {
+        #[arg(long)]
         description: Option<String>,
+
+        #[arg(long)]
         network: bitcoin::Network,
     },
     GetSignableNotes,
+    VerifyNoteSignature {
+        #[arg(long)]
+        event_id: EventId,
+    },
 }
 
 pub(crate) async fn handle_cli_command(
@@ -75,6 +82,15 @@ pub(crate) async fn handle_cli_command(
         Commands::GetSignableNotes => {
             let signable_notes = roastr.get_all_notes().await?;
             json!(signable_notes)
+        }
+        Commands::VerifyNoteSignature { event_id } => {
+            let signed_note = roastr.create_signed_note(event_id).await?;
+            let signature = signed_note.sig;
+            let msg = nostr_sdk::secp256k1::Message::from_digest(event_id.to_bytes());
+            let ctx = nostr_sdk::secp256k1::Secp256k1::new();
+            let pubkey = roastr.frost_key.public_key();
+            ctx.verify_schnorr(&signature, &msg, &pubkey)?;
+            serde_json::Value::Bool(true)
         }
     };
 

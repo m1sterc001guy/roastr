@@ -57,7 +57,7 @@ schnorr_fun = { version = "0.10.0", features = ["serde", "bincode"] }
 tracing = "0.1.41"
 rand = "0.8.5"
 secp256k1 = "0.29.0"
-serde = { version = "1.0.149", features = [ "derive" ] }
+serde = { version = "1.0.149", features = ["derive"] }
 serde_json = { version = "1.0.91", features = ["preserve_order"] }
 sha2 = "0.10"
 strum = "0.26.3"
@@ -72,9 +72,7 @@ split-debuginfo = "packed"
 # in dev mode optimize crates that are perf-critical (usually just crypto crates)
 [profile.dev.package]
 secp256k1 = { opt-level = 3 }
-secp256k1-zkp = { opt-level = 3 }
 secp256k1-sys = { opt-level = 3 }
-secp256k1-zkp-sys = { opt-level = 3 }
 bitcoin_hashes = { opt-level = 3 }
 ff = { opt-level = 3 }
 group = { opt-level = 3 }
