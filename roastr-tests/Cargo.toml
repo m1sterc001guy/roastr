@@ -11,10 +11,6 @@ publish = false
 name = "roastr-devimint-tests"
 path = "bin/tests.rs"
 
-[[test]]
-name = "roastr_tests"
-path = "tests/tests.rs"
-
 [dependencies]
 anyhow = { workspace = true }
 devimint = { workspace = true }
