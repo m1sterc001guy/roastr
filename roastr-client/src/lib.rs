@@ -21,7 +21,7 @@ use fedimint_core::time::now;
 use fedimint_core::{apply, async_trait_maybe_send, Amount, PeerId};
 use nostr_sdk::secp256k1::schnorr::Signature;
 use nostr_sdk::{
-    Alphabet, Client, JsonUtil, Keys, Kind, SingleLetterTag, Tag, TagKind, ToBech32, Url,
+    Alphabet, Client, JsonUtil, Keys, Kind, Metadata, SingleLetterTag, Tag, TagKind, ToBech32, Url,
 };
 use roastr_common::endpoint_constants::{
     CREATE_NOTE_ENDPOINT, GET_EVENTS_ENDPOINT, GET_EVENT_ENDPOINT, GET_EVENT_SESSIONS_ENDPOINT,
@@ -123,6 +123,24 @@ impl RoastrClientModule {
         let unsigned_event =
             UnsignedEvent::new(nostr_sdk::EventBuilder::text_note(text).build(public_key));
         self.request_create_note(unsigned_event).await
+    }
+
+    /// Creates a Nostr metadata event and proposes it to consensus for signing
+    pub async fn set_metadata(
+        &self,
+        name: String,
+        display_name: String,
+        about: String,
+        picture: Url,
+    ) -> anyhow::Result<EventId> {
+        let public_key = self.frost_key.public_key();
+        let metadata = Metadata::new()
+            .name(name)
+            .display_name(display_name)
+            .about(about)
+            .picture(picture);
+        let event = nostr_sdk::EventBuilder::metadata(&metadata).build(public_key);
+        self.request_create_note(UnsignedEvent::new(event)).await
     }
 
     /// Queries the federation for available notes to sign

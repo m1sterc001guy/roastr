@@ -6302,6 +6302,7 @@ dependencies = [
  "strum_macros 0.26.4",
  "thiserror 2.0.11",
  "tracing",
+ "url",
 ]
 
 [[package]]

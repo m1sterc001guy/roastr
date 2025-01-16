@@ -4,6 +4,7 @@ use clap::Parser;
 use roastr_common::EventId;
 use serde::Serialize;
 use serde_json::json;
+use url::Url;
 
 use crate::{create_federation_announcement, RoastrClientModule};
 
@@ -37,6 +38,19 @@ enum Commands {
     VerifyNoteSignature {
         #[arg(long)]
         event_id: EventId,
+    },
+    SetMetadata {
+        #[arg(long)]
+        name: String,
+
+        #[arg(long)]
+        display_name: String,
+
+        #[arg(long)]
+        about: String,
+
+        #[arg(long)]
+        picture: Url,
     },
 }
 
@@ -91,6 +105,19 @@ pub(crate) async fn handle_cli_command(
             let pubkey = roastr.frost_key.public_key();
             ctx.verify_schnorr(&signature, &msg, &pubkey)?;
             serde_json::Value::Bool(true)
+        }
+        Commands::SetMetadata {
+            name,
+            display_name,
+            about,
+            picture,
+        } => {
+            let event_id = roastr
+                .set_metadata(name, display_name, about, picture)
+                .await?;
+            json!({
+                "event_id": event_id,
+            })
         }
     };
 
