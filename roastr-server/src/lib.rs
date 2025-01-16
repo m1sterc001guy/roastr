@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ops::Deref;
 
 use anyhow::anyhow;
@@ -633,7 +633,7 @@ impl ServerModule for Roastr {
             api_endpoint! {
                 GET_EVENTS_ENDPOINT,
                 ApiVersion::new(0, 0),
-                async |roastr: &Roastr, context, _v: ()| -> HashSet<(EventId, UnsignedEvent)> {
+                async |roastr: &Roastr, context, _v: ()| -> HashMap<EventId, UnsignedEvent> {
                     check_auth(context)?;
                     let mut dbtx = context.dbtx();
                     let events = roastr.get_all_events(&mut dbtx.to_ref_nc()).await;
@@ -813,21 +813,42 @@ impl Roastr {
     async fn get_all_events(
         &self,
         dbtx: &mut DatabaseTransaction<'_>,
-    ) -> HashSet<(EventId, UnsignedEvent)> {
-        // TODO: Validate that we dont have a signature share before returning note
-        dbtx.find_by_prefix(&SessionNoncePrefix)
+    ) -> HashMap<EventId, UnsignedEvent> {
+        let current_sessions = dbtx
+            .find_by_prefix(&SessionNoncePrefix)
             .await
-            .filter_map(|(_, session_nonces)| async move {
-                if session_nonces.nonces.is_empty() {
+            .filter_map(|(session_key, session_nonces)| async move {
+                if session_nonces.nonces.is_empty()
+                    || !session_nonces
+                        .nonces
+                        .contains_key(&self.cfg.private.my_peer_id)
+                {
                     None
                 } else {
                     let unsigned_event = session_nonces.unsigned_event;
-                    let event_id = unsigned_event.compute_id();
-                    Some((event_id, unsigned_event))
+                    Some((unsigned_event, session_key.signing_session))
                 }
             })
-            .collect::<HashSet<_>>()
-            .await
+            .collect::<Vec<_>>()
+            .await;
+
+        let mut unsigned_events = HashMap::new();
+        for (unsigned_event, signing_session) in current_sessions {
+            let event_id = unsigned_event.compute_id();
+            // No signature share was found for this session for us
+            if dbtx
+                .get_value(&SignatureShareKey {
+                    event_id,
+                    signing_session,
+                })
+                .await
+                .is_none()
+            {
+                unsigned_events.insert(event_id, unsigned_event);
+            }
+        }
+
+        unsigned_events
     }
 }
 

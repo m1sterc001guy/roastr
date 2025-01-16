@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ops::Deref;
 use std::time::{Duration, SystemTime};
 use std::{ffi, mem};
@@ -126,12 +126,12 @@ impl RoastrClientModule {
     }
 
     /// Queries the federation for available notes to sign
-    pub async fn get_all_notes(&self) -> anyhow::Result<HashSet<(EventId, UnsignedEvent)>> {
+    pub async fn get_all_notes(&self) -> anyhow::Result<HashMap<EventId, UnsignedEvent>> {
         let admin_auth = self
             .admin_auth
             .clone()
             .ok_or(anyhow::anyhow!("Admin auth not set"))?;
-        let notes: HashSet<(EventId, UnsignedEvent)> = self
+        let notes: HashMap<EventId, UnsignedEvent> = self
             .module_api
             .request_admin(GET_EVENTS_ENDPOINT, ApiRequestErased::default(), admin_auth)
             .await?;
