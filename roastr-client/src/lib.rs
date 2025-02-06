@@ -163,7 +163,8 @@ impl RoastrClientModule {
             .admin_auth
             .clone()
             .ok_or(anyhow::anyhow!("Admin auth not set"))?;
-        self.module_api
+        let () = self
+            .module_api
             .request_admin(
                 CREATE_NOTE_ENDPOINT,
                 ApiRequestErased::new(unsigned_event.clone()),
@@ -257,7 +258,8 @@ impl RoastrClientModule {
             .ok_or(anyhow::anyhow!("Admin auth not set"))?;
 
         // Request the peer to sign the event
-        self.module_api
+        let () = self
+            .module_api
             .request_admin(
                 SIGN_NOTE_ENDPOINT,
                 ApiRequestErased::new(event_id),
