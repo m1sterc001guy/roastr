@@ -194,10 +194,10 @@ impl Encodable for NonceKeyPair {
 }
 
 impl Decodable for NonceKeyPair {
-    fn consensus_decode<R: std::io::Read>(
+    fn consensus_decode_partial<R: std::io::Read>(
         r: &mut R,
         _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
-    ) -> Result<Self, fedimint_core::encoding::DecodeError> {
+    ) -> Result<Self, DecodeError> {
         let mut bytes = [0; 64];
         r.read_exact(&mut bytes)
             .map_err(|_| DecodeError::from_str("Failed to decode NonceKeyPair"))?;
@@ -251,11 +251,11 @@ impl Encodable for UnsignedEvent {
 }
 
 impl Decodable for UnsignedEvent {
-    fn consensus_decode<R: std::io::Read>(
+    fn consensus_decode_partial<R: std::io::Read>(
         r: &mut R,
         modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
     ) -> Result<Self, DecodeError> {
-        let bytes = Vec::<u8>::consensus_decode(r, modules)?;
+        let bytes = Vec::<u8>::consensus_decode_partial(r, modules)?;
         let json = String::from_utf8(bytes)
             .map_err(|_| DecodeError::from_str("Failed to convert bytes to json"))?;
         let event = nostr_sdk::UnsignedEvent::from_json(json)
@@ -288,7 +288,7 @@ impl Encodable for EventId {
 }
 
 impl Decodable for EventId {
-    fn consensus_decode<R: std::io::Read>(
+    fn consensus_decode_partial<R: std::io::Read>(
         r: &mut R,
         _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
     ) -> Result<Self, DecodeError> {
@@ -333,7 +333,7 @@ impl Encodable for Point {
 }
 
 impl Decodable for Point {
-    fn consensus_decode<R: std::io::Read>(
+    fn consensus_decode_partial<R: std::io::Read>(
         reader: &mut R,
         _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
     ) -> Result<Self, fedimint_core::encoding::DecodeError> {
@@ -374,7 +374,7 @@ impl Encodable for PublicScalar {
 }
 
 impl Decodable for PublicScalar {
-    fn consensus_decode<R: std::io::Read>(
+    fn consensus_decode_partial<R: std::io::Read>(
         reader: &mut R,
         _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
     ) -> Result<Self, DecodeError> {
@@ -420,7 +420,7 @@ impl Encodable for SecretScalar {
 }
 
 impl Decodable for SecretScalar {
-    fn consensus_decode<R: std::io::Read>(
+    fn consensus_decode_partial<R: std::io::Read>(
         reader: &mut R,
         _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
     ) -> Result<Self, DecodeError> {
@@ -461,7 +461,7 @@ impl Encodable for Signature {
 }
 
 impl Decodable for Signature {
-    fn consensus_decode<R: std::io::Read>(
+    fn consensus_decode_partial<R: std::io::Read>(
         reader: &mut R,
         _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
     ) -> Result<Self, DecodeError> {
@@ -509,7 +509,7 @@ impl Encodable for RoastrKey {
 }
 
 impl Decodable for RoastrKey {
-    fn consensus_decode<R: std::io::Read>(
+    fn consensus_decode_partial<R: std::io::Read>(
         r: &mut R,
         _modules: &fedimint_core::module::registry::ModuleDecoderRegistry,
     ) -> Result<Self, DecodeError> {

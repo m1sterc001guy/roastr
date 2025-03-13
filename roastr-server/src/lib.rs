@@ -7,7 +7,7 @@ use db::{
     NonceKey, NoncePeerPrefix, SessionNonceKey, SessionNoncePrefix, SignatureShareEventPrefix,
 };
 use fedimint_core::config::{
-    ConfigGenModuleParams, DkgResult, ServerModuleConfig, ServerModuleConsensusConfig,
+    ConfigGenModuleParams, ServerModuleConfig, ServerModuleConsensusConfig,
     TypedServerModuleConfig, TypedServerModuleConsensusConfig,
 };
 use fedimint_core::core::ModuleInstanceId;
@@ -15,12 +15,13 @@ use fedimint_core::db::{DatabaseTransaction, IDatabaseTransactionOpsCoreTyped};
 use fedimint_core::module::audit::Audit;
 use fedimint_core::module::{
     api_endpoint, ApiEndpoint, ApiVersion, CoreConsensusVersion, IDynCommonModuleInit, InputMeta,
-    ModuleConsensusVersion, ModuleInit, PeerHandle, ServerModuleInit, ServerModuleInitArgs,
-    SupportedModuleApiVersions, TransactionItemAmount, CORE_CONSENSUS_VERSION,
+    ModuleConsensusVersion, ModuleInit, PeerHandle, SupportedModuleApiVersions,
+    TransactionItemAmount, CORE_CONSENSUS_VERSION,
 };
-use fedimint_core::server::DynServerModule;
-use fedimint_core::{push_db_pair_items, OutPoint, PeerId, ServerModule};
-use fedimint_server::config::distributedgen::PeerHandleOps;
+use fedimint_core::{push_db_pair_items, InPoint, OutPoint, PeerId};
+use fedimint_server::core::{
+    DynServerModule, ServerModule, ServerModuleInit, ServerModuleInitArgs,
+};
 use fedimint_server::net::api::check_auth;
 use futures::StreamExt;
 use itertools::Itertools;
@@ -176,7 +177,7 @@ impl ServerModuleInit for RoastrInit {
         &self,
         peers: &PeerHandle,
         params: &ConfigGenModuleParams,
-    ) -> DkgResult<ServerModuleConfig> {
+    ) -> anyhow::Result<ServerModuleConfig> {
         let params = self.parse_params(params).unwrap();
         let threshold = params.consensus.threshold;
 
@@ -208,7 +209,7 @@ impl ServerModuleInit for RoastrInit {
             })
             .collect::<BTreeMap<_, _>>();
 
-        let my_index = peer_id_to_scalar(&peers.our_id);
+        let my_index = peer_id_to_scalar(&peers.identity);
         let my_polys = BTreeMap::from_iter([(my_index, &my_secret_poly)]);
 
         // Start FROST key generation
@@ -267,14 +268,14 @@ impl ServerModuleInit for RoastrInit {
             .finish_keygen(keygen.clone(), my_index, my_shares, pop_message)
             .expect("Finish keygen failed");
 
-        tracing::info!(?peers.our_id, "DKG Finished successfully");
+        tracing::info!(?peers.identity, "DKG Finished successfully");
 
-        let all_peers = BTreeSet::from_iter(peers.peer_ids().iter().cloned());
+        let all_peers = BTreeSet::from_iter(peers.num_peers().peer_ids());
 
         Ok(RoastrConfig {
             local: RoastrConfigLocal,
             private: RoastrConfigPrivate {
-                my_peer_id: peers.our_id,
+                my_peer_id: peers.identity,
                 my_secret_share,
             },
             consensus: RoastrConfigConsensus {
@@ -501,6 +502,7 @@ impl ServerModule for Roastr {
         &'a self,
         _dbtx: &mut DatabaseTransaction<'c>,
         _input: &'b RoastrInput,
+        _in_point: InPoint,
     ) -> Result<InputMeta, RoastrInputError> {
         Err(RoastrInputError::InvalidOperation(
             "Roastr module does not process inputs".to_string(),

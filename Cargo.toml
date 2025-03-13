@@ -25,16 +25,16 @@ license-file = "LICENSE"
 keywords = ["bitcoin", "lightning", "chaumian", "e-cash", "federated"]
 
 [workspace.dependencies]
-fedimintd = "0.5.0"
-fedimint-api-client = "0.5.0"
-fedimint-cli = "0.5.0"
-fedimint-core = "0.5.0"
-fedimint-server = "0.5.0"
-fedimint-client = "0.5.0"
-fedimint-logging = "0.5.0"
-fedimint-testing = "0.5.0"
-devimint = "0.5.0"
-aead = "0.5.0"
+fedimintd = "0.6.1"
+fedimint-api-client = "0.6.1"
+fedimint-cli = "0.6.1"
+fedimint-core = "0.6.1"
+fedimint-server = "0.6.1"
+fedimint-client = "0.6.1"
+fedimint-logging = "0.6.1"
+fedimint-testing = "0.6.1"
+devimint = "0.6.1"
+aead = "0.6.1"
 
 async-trait = "0.1.85"
 bitcoin = { version = "0.32.5", features = ["serde"] }
