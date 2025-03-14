@@ -14,11 +14,12 @@ use fedimint_core::core::ModuleInstanceId;
 use fedimint_core::db::{DatabaseTransaction, IDatabaseTransactionOpsCoreTyped};
 use fedimint_core::module::audit::Audit;
 use fedimint_core::module::{
-    api_endpoint, ApiEndpoint, ApiVersion, CoreConsensusVersion, IDynCommonModuleInit, InputMeta,
-    ModuleConsensusVersion, ModuleInit, PeerHandle, SupportedModuleApiVersions,
-    TransactionItemAmount, CORE_CONSENSUS_VERSION,
+    api_endpoint, ApiEndpoint, ApiVersion, CoreConsensusVersion, InputMeta, ModuleConsensusVersion,
+    ModuleInit, PeerHandle, SupportedModuleApiVersions, TransactionItemAmount,
+    CORE_CONSENSUS_VERSION,
 };
 use fedimint_core::{push_db_pair_items, InPoint, OutPoint, PeerId};
+use fedimint_server::config::distributedgen::PeerHandleOps;
 use fedimint_server::core::{
     DynServerModule, ServerModule, ServerModuleInit, ServerModuleInitArgs,
 };
@@ -38,7 +39,7 @@ use roastr_common::{
     peer_id_to_scalar, EventId, Frost, GetUnsignedEventRequest, NonceKeyPair, Point, PublicScalar,
     RoastrCommonInit, RoastrConsensusItem, RoastrInput, RoastrInputError, RoastrKey,
     RoastrModuleTypes, RoastrOutcome, RoastrOutput, RoastrOutputError, SecretScalar, Signature,
-    SignatureShare, SigningSession, UnsignedEvent, KIND, MODULE_CONSENSUS_VERSION,
+    SignatureShare, SigningSession, UnsignedEvent, MODULE_CONSENSUS_VERSION,
 };
 use schnorr_fun::fun::poly;
 use schnorr_fun::Message;
@@ -191,12 +192,7 @@ impl ServerModuleInit for RoastrInit {
         // Exchange our polynomial with the other peers and wait for the polynomials
         // from the other peers.
         let public_polynomials = peers
-            .exchange_with_peers::<Vec<Point>>(
-                "nostr_polynomials".to_string(),
-                my_public_poly,
-                KIND,
-                self.decoder(),
-            )
+            .exchange_encodable::<Vec<Point>>(my_public_poly)
             .await?
             .into_iter()
             .map(|(peer_id, poly)| {
@@ -233,12 +229,7 @@ impl ServerModuleInit for RoastrInit {
 
         // Exchanges the shares and pops with all peers
         let shares_and_pop: BTreeMap<PeerId, FrostShare> = peers
-            .exchange_with_peers::<FrostShare>(
-                "nostr_shares".to_string(),
-                (shares_i_generated_converted, Signature::new(pop)),
-                KIND,
-                self.decoder(),
-            )
+            .exchange_encodable::<FrostShare>((shares_i_generated_converted, Signature::new(pop)))
             .await?;
 
         // Aggregate the shares that were sent from other peers into just the shares

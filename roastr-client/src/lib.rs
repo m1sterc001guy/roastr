@@ -1,10 +1,10 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, HashMap};
 use std::ops::Deref;
 use std::time::{Duration, SystemTime};
 use std::{ffi, mem};
 
 use bitcoin::Network;
-use fedimint_api_client::api::{self, DynModuleApi, FederationApiExt};
+use fedimint_api_client::api::{DynModuleApi, FederationApiExt};
 use fedimint_api_client::query::{QueryStep, QueryStrategy};
 use fedimint_client::module::init::{ClientModuleInit, ClientModuleInitArgs};
 use fedimint_client::module::recovery::NoModuleBackup;
@@ -574,29 +574,13 @@ impl<R> ThresholdOrDeadline<R> {
 }
 
 impl<R> QueryStrategy<R, BTreeMap<PeerId, R>> for ThresholdOrDeadline<R> {
-    fn process(
-        &mut self,
-        peer: PeerId,
-        result: api::PeerResult<R>,
-    ) -> QueryStep<BTreeMap<PeerId, R>> {
-        match result {
-            Ok(response) => {
-                assert!(self.responses.insert(peer, response).is_none());
+    fn process(&mut self, peer: PeerId, response: R) -> QueryStep<BTreeMap<PeerId, R>> {
+        assert!(self.responses.insert(peer, response).is_none());
 
-                if self.threshold <= self.responses.len() || self.deadline <= now() {
-                    QueryStep::Success(mem::take(&mut self.responses))
-                } else {
-                    QueryStep::Continue
-                }
-            }
-            // we rely on retries and timeouts to detect a deadline passing
-            Err(_) => {
-                if self.deadline <= now() {
-                    QueryStep::Success(mem::take(&mut self.responses))
-                } else {
-                    QueryStep::Retry(BTreeSet::from([peer]))
-                }
-            }
+        if self.threshold <= self.responses.len() || self.deadline <= now() {
+            QueryStep::Success(mem::take(&mut self.responses))
+        } else {
+            QueryStep::Continue
         }
     }
 }
